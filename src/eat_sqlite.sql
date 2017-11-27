@@ -13,9 +13,9 @@ CREATE TABLE level_of_evidence(
   outcome       TEXT      NOT NULL,
   loe_final     TEXT      NOT NULL,  -- LoE after downgrading
   loe_pre       TEXT      NOT NULL,  -- LoE based on study design
-  points_p      INTEGER   NOT NULL,  -- possible quality points
-  points_q      INTEGER   NOT NULL,  -- quality points achieved
-  q_score       REAL      NOT NULL,  -- quality score as percentage
+  points_p      INTEGER   NOT NULL,  -- possible quality points, calculated
+  points_q      INTEGER   NOT NULL,  -- quality points achieved, calculated
+  q_score       REAL      NOT NULL,  -- quality score as percentage, calculated
   downgrading   TEXT      NOT NULL,  -- downgrading based on quality score
   assessor_id   INTEGER   NOT NULL,  -- assessor_id
   date_entered  INTEGER   NOT NULL,  -- entry date of record in format YYYY-MM-DD
@@ -25,6 +25,7 @@ CREATE TABLE level_of_evidence(
   PRIMARY KEY(study_id),
   FOREIGN KEY(assessor_id) REFERENCES assesors(assessor_id),
   FOREIGN KEY(study_id) REFERENCES studies(study_id),
+  FOREIGN KEY(downgrading) REFERENCES downgrading(adjustment),
   /* NB for new records the studies table must be populated first */
 
   /* Checks */
@@ -66,7 +67,7 @@ CREATE TABLE assesors(
 
 CREATE TABLE studies(
   study_id      INTEGER   NOT NULL,
-  shorthand     TEXT      NOT NULL,  -- formatted as AuthorYear
+  abbreviation  TEXT      NOT NULL,  -- formatted as AuthorYear
   authors       TEXT      NOT NULL,
   title         TEXT      NOT NULL,
   year          INTEGER   NOT NULL,
@@ -116,14 +117,14 @@ CREATE TABLE quality(
 CREATE TABLE downgrading(
   rule_id       INTEGER   NOT NULL,  -- rule identifier
   q_score       REAL      NOT NULL,  -- achieved quality score as percentage
-  downgrading   TEXT      NOT NULL,  -- adjustments for final level of evidence
+  adjustment    TEXT      UNIQUE NOT NULL,  -- adjustments for final level of evidence
 
   /* Keys */
   PRIMARY KEY (rule_id),
 
   /* Checks */
   CONSTRAINT score_range CHECK (q_score>= 0 AND q_score <=100),
-  CHECK (downgrading IN ('none', 'half a level', 'one level', 'one and a half levels',
+  CHECK (adjustment IN ('none', 'half a level', 'one level', 'one and a half levels',
                          'two levels', 'two and a half levels', 'three levels'))
 );
 
