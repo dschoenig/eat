@@ -56,7 +56,7 @@ CREATE TABLE level_of_evidence(
 );
 
 CREATE TABLE assesors(
-  assessor_id   INTEGER   NOT NULL,
+  assessor_id   INTEGER   NOT NULL    AUTO_INCREMENT,
   name          TEXT,                -- name of assesor
   source        TEXT,                -- published source of assessments
   email         TEXT      NOT NULL,  -- email contact of assessor
@@ -66,7 +66,7 @@ CREATE TABLE assesors(
 );
 
 CREATE TABLE studies(
-  study_id      INTEGER   NOT NULL,
+  study_id      INTEGER   NOT NULL    AUTO_INCREMENT,
   abbreviation  TEXT      NOT NULL,  -- formatted as AuthorYear
   authors       TEXT      NOT NULL,
   title         TEXT      NOT NULL,
@@ -116,14 +116,17 @@ CREATE TABLE quality(
 
 CREATE TABLE downgrading(
   rule_id       INTEGER   NOT NULL,  -- rule identifier
-  q_score       REAL      NOT NULL,  -- achieved quality score as percentage
+  q_score_lb    INTEGER   NOT NULL,  -- lower bound (exclusive) of quality score range as percentage
+  q_score_ub    INTEGER   NOT NULL,  -- upper bound (inclusive) of quality score range as percentage
   adjustment    TEXT      UNIQUE NOT NULL,  -- adjustments for final level of evidence
 
   /* Keys */
   PRIMARY KEY (rule_id),
 
   /* Checks */
-  CONSTRAINT score_range CHECK (q_score>= 0 AND q_score <=100),
+  CONSTRAINT score_range_lb CHECK (q_score_ub > 0 AND q_score_lb <=100),
+  CONSTRAINT score_range_ub CHECK (q_score_ub >= 0 AND q_score_ub <100),
+  CHECK (q_score_lb <= q_score_ub)
   CHECK (adjustment IN ('none', 'half a level', 'one level', 'one and a half levels',
                          'two levels', 'two and a half levels', 'three levels'))
 );
