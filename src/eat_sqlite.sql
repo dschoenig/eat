@@ -56,7 +56,7 @@ CREATE TABLE level_of_evidence(
 );
 
 CREATE TABLE assesors(
-  assessor_id   INTEGER   NOT NULL    AUTO_INCREMENT,
+  assessor_id   INTEGER   NOT NULL,
   name          TEXT,                -- name of assesor
   source        TEXT,                -- published source of assessments
   email         TEXT      NOT NULL,  -- email contact of assessor
@@ -66,7 +66,7 @@ CREATE TABLE assesors(
 );
 
 CREATE TABLE studies(
-  study_id      INTEGER   NOT NULL    AUTO_INCREMENT,
+  study_id      INTEGER   NOT NULL,
   abbreviation  TEXT      NOT NULL,  -- formatted as AuthorYear
   authors       TEXT      NOT NULL,
   title         TEXT      NOT NULL,
