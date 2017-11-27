@@ -124,7 +124,7 @@ CREATE TABLE downgrading(
   PRIMARY KEY (rule_id),
 
   /* Checks */
-  CONSTRAINT score_range_lb CHECK (q_score_ub > 0 AND q_score_lb <=100),
+  CONSTRAINT score_range_lb CHECK (q_score_lb > 0 AND q_score_lb <=100),
   CONSTRAINT score_range_ub CHECK (q_score_ub >= 0 AND q_score_ub <100),
   CHECK (q_score_lb <= q_score_ub)
   CHECK (adjustment IN ('none', 'half a level', 'one level', 'one and a half levels',
