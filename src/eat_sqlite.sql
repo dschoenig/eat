@@ -1,7 +1,5 @@
 /* USE ONLY WITH SQLITE */
 
-/* TODO Table for downgrading rules; table for answer to checklist quesions*/
-
 PRAGMA foreign_keys=OFF;
 
 BEGIN TRANSACTION;
@@ -53,7 +51,7 @@ CREATE TABLE loe(
               (study_design = 'Multiple lines of weak evidence' AND loe_pre = 'LoE3c') OR
               (study_design = 'Expert opinion' AND loe_pre = 'LoE4') OR
               (study_design = 'Mechanism-based reasoning' AND loe_pre = 'LoE4'))
-  );
+);
 
 CREATE TABLE assesors(
   assessor_id   INTEGER   NOT NULL,
@@ -63,7 +61,7 @@ CREATE TABLE assesors(
 
   /* Keys */
   PRIMARY KEY(assessor_id)
-  );
+);
 
 CREATE TABLE studies(
   study_id      INTEGER   NOT NULL,
@@ -76,7 +74,7 @@ CREATE TABLE studies(
 
   /* Keys */
   PRIMARY KEY(study_id)
-  );
+);
 
 CREATE TABLE checklist(
   question_id   INTEGER   NOT NULL,  -- corresponds to number in checklist
@@ -98,8 +96,21 @@ CREATE TABLE checklist(
               OR
               (q_group = 'Focus-specific aspects' AND
                q_subgroup IN ('Quantification', 'Valuation', 'Management','Governance')))
-  );
+);
 
+CREATE TABLE quality(
+  study_id      INTEGER   NOT NULL,
+  question_id   INTEGER   NOT NULL,
+  answer        TEXT,
+
+  /* Keys */
+  CONSTRAINT quality_pk PRIMARY KEY (study_id, question_id),
+  FOREIGN KEY (study_id) REFERENCES studies(study_id),
+  FOREIGN KEY (question_id) REFERENCES checklist(question_id),
+
+  /* Checks */
+  CHECK (answer IN ("yes", "no", NULL))
+);
 
 COMMIT;
 
