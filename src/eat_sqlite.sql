@@ -4,7 +4,7 @@ PRAGMA foreign_keys=OFF;
 
 BEGIN TRANSACTION;
 
-CREATE TABLE loe(
+CREATE TABLE level_of_evidence(
   study_id      INTEGER   NOT NULL,
   study_design  TEXT      NOT NULL,
   context       TEXT      NOT NULL,
@@ -15,9 +15,10 @@ CREATE TABLE loe(
   loe_pre       TEXT      NOT NULL,  -- LoE based on study design
   points_p      INTEGER   NOT NULL,  -- possible quality points
   points_q      INTEGER   NOT NULL,  -- quality points achieved
-  q_score       INTEGER   NOT NULL,  -- quality score as percentage
-  dgrade        TEXT      NOT NULL,  -- downgrading based on quality score
+  q_score       REAL      NOT NULL,  -- quality score as percentage
+  downgrading   TEXT      NOT NULL,  -- downgrading based on quality score
   assessor_id   INTEGER   NOT NULL,  -- assessor_id
+  date_entered  INTEGER   NOT NULL,  -- entry date of record in format YYYY-MM-DD
   reviewed      TEXT      NOT NULL,  -- whether databse entry has been reviewed
 
   /* Keys */
@@ -37,8 +38,8 @@ CREATE TABLE loe(
   CHECK (loe_pre IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4')),
   CHECK (points_q <= points_p),
   CONSTRAINT score_range CHECK (q_score>= 0 AND q_score <=100),
-  CHECK (dgrade IN ('half a level', 'one level', 'one and a half levels',
-                    'two levels', 'two and a half levels', 'three levels')),
+  CHECK (downgrading IN ('none', 'half a level', 'one level', 'one and a half levels',
+                         'two levels', 'two and a half levels', 'three levels')),
   CHECK (reviewed IN ('yes', 'no')),
   CONSTRAINT study_design_loe_pre  -- possible matchings between design and loe_pre
        CHECK ((study_design = 'Systematic review' AND loe_pre = 'LoE1a') OR
@@ -78,8 +79,8 @@ CREATE TABLE studies(
 
 CREATE TABLE checklist(
   question_id   INTEGER   NOT NULL,  -- corresponds to number in checklist
-  q_group       TEXT      NOT NULL,
-  q_subgroup    TEXT      NOT NULL,
+  q_group       TEXT      NOT NULL,  -- corresponds to group in checklist
+  q_subgroup    TEXT      NOT NULL,  -- corresponds to subgroup in checklist
   question      TEXT      NOT NULL,
   description   TEXT      NOT NULL,
 
@@ -110,6 +111,20 @@ CREATE TABLE quality(
 
   /* Checks */
   CHECK (answer IN ("yes", "no", NULL))
+);
+
+CREATE TABLE downgrading(
+  rule_id       INTEGER   NOT NULL,  -- rule identifier
+  q_score       REAL      NOT NULL,  -- achieved quality score as percentage
+  downgrading   TEXT      NOT NULL,  -- adjustments for final level of evidence
+
+  /* Keys */
+  PRIMARY KEY (rule_id),
+
+  /* Checks */
+  CONSTRAINT score_range CHECK (q_score>= 0 AND q_score <=100),
+  CHECK (downgrading IN ('none', 'half a level', 'one level', 'one and a half levels',
+                         'two levels', 'two and a half levels', 'three levels'))
 );
 
 COMMIT;
