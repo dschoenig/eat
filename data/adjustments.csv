@@ -1,0 +1,8 @@
+"adjustment_id","q_score_ub","q_score_lb","adjustment"
+1,100,87,"none"
+2,87,74,"half a level"
+3,74,61,"one level"
+4,61,49,"one and a half levels"
+5,49,36,"two levels"
+6,36,24,"two and a half levels"
+7,24,-0.1,"three levels"
