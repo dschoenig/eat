@@ -112,12 +112,14 @@ CREATE TABLE checklist(
 );
 
 CREATE TABLE quality(
+  assessment_id INTEGER   NOT NULL,
   study_id      INTEGER   NOT NULL,
   question_id   INTEGER   NOT NULL,
   answer        TEXT,
 
   /* Keys */
-  CONSTRAINT quality_pk PRIMARY KEY (study_id, question_id),
+  CONSTRAINT quality_pk PRIMARY KEY (assessment_id, study_id, question_id),
+  FOREIGN KEY (assessment_id) REFERENCES assessments(assessment_id),
   FOREIGN KEY (study_id) REFERENCES studies(study_id),
   FOREIGN KEY (question_id) REFERENCES checklist(question_id),
 
@@ -129,7 +131,7 @@ CREATE TABLE downgrading(
   rule_id       INTEGER   NOT NULL,  -- rule identifier
   q_score_ub    INTEGER   NOT NULL,  -- upper bound (inclusive) of quality score range as percentage
   q_score_lb    INTEGER   NOT NULL,  -- lower bound (exclusive) of quality score range as percentage
-  adjustment    TEXT      UNIQUE NOT NULL,  -- adjustments for final level of evidence
+  adjustment    TEXT      NOT NULL,  -- adjustments for final level of evidence
 
   /* Keys */
   PRIMARY KEY (rule_id),
