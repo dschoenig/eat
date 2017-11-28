@@ -5,6 +5,8 @@ PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
 
 CREATE TABLE level_of_evidence(
+  record_id     INTEGER   NOT NULL,
+  assessment_id INTEGER   NOT NULL,
   study_id      INTEGER   NOT NULL,
   study_design  TEXT      NOT NULL,
   context       TEXT      NOT NULL,
@@ -17,16 +19,15 @@ CREATE TABLE level_of_evidence(
   points_q      INTEGER   NOT NULL,  -- quality points achieved, calculated
   q_score       REAL      NOT NULL,  -- quality score as percentage, calculated
   downgrading   TEXT      NOT NULL,  -- downgrading based on quality score
-  assessor_id   INTEGER   NOT NULL,  -- assessor_id
-  date_entered  INTEGER   NOT NULL,  -- entry date of record in format YYYY-MM-DD
-  reviewed      TEXT      NOT NULL,  -- whether databse entry has been reviewed
+  reviewed      TEXT      NOT NULL,  -- whether validity of databse entry has been reviewed
 
   /* Keys */
-  PRIMARY KEY(study_id),
-  FOREIGN KEY(assessor_id) REFERENCES assesors(assessor_id),
+  PRIMARY KEY(record_id),
+  FOREIGN KEY(assessment_id) REFERENCES assessments(assessment_id),
   FOREIGN KEY(study_id) REFERENCES studies(study_id),
   FOREIGN KEY(downgrading) REFERENCES downgrading(adjustment),
-  /* NB for new records the studies table must be populated first */
+  /* NB: for new records, the studies, assessor, and assements tables
+  must be populated first */
 
   /* Checks */
   CHECK (study_design IN ('Systematic review', 'Conventional review',
@@ -55,16 +56,6 @@ CREATE TABLE level_of_evidence(
               (study_design = 'Mechanism-based reasoning' AND loe_pre = 'LoE4'))
 );
 
-CREATE TABLE assesors(
-  assessor_id   INTEGER   NOT NULL,
-  name          TEXT,                -- name of assesor
-  source        TEXT,                -- published source of assessments
-  email         TEXT      NOT NULL,  -- email contact of assessor
-
-  /* Keys */
-  PRIMARY KEY(assessor_id)
-);
-
 CREATE TABLE studies(
   study_id      INTEGER   NOT NULL,
   abbreviation  TEXT      NOT NULL,  -- formatted as AuthorYear
@@ -76,6 +67,26 @@ CREATE TABLE studies(
 
   /* Keys */
   PRIMARY KEY(study_id)
+);
+
+CREATE TABLE assessors(
+  assessor_id   INTEGER   NOT NULL,
+  name          TEXT,                -- name of assessor
+  email         TEXT      NOT NULL,  -- email contact of assessor
+
+  /* Keys */
+  PRIMARY KEY(assessor_id)
+);
+
+CREATE TABLE assessments(
+  assessment_id INTEGER   NOT NULL,
+  assessor_id   INTEGER   NOT NULL,
+  date_entered  INTEGER   NOT NULL,  -- entry date of records in format YYYY-MM-DD
+  source        TEXT,                -- published source of assessments
+
+  /* Keys */
+  PRIMARY KEY(assessment_id),
+  FOREIGN KEY(assessor_id) REFERENCES assessors(assessor_id)
 );
 
 CREATE TABLE checklist(
@@ -116,16 +127,16 @@ CREATE TABLE quality(
 
 CREATE TABLE downgrading(
   rule_id       INTEGER   NOT NULL,  -- rule identifier
-  q_score_lb    INTEGER   NOT NULL,  -- lower bound (exclusive) of quality score range as percentage
   q_score_ub    INTEGER   NOT NULL,  -- upper bound (inclusive) of quality score range as percentage
+  q_score_lb    INTEGER   NOT NULL,  -- lower bound (exclusive) of quality score range as percentage
   adjustment    TEXT      UNIQUE NOT NULL,  -- adjustments for final level of evidence
 
   /* Keys */
   PRIMARY KEY (rule_id),
 
   /* Checks */
-  CONSTRAINT score_range_lb CHECK (q_score_lb > 0 AND q_score_lb <=100),
   CONSTRAINT score_range_ub CHECK (q_score_ub >= 0 AND q_score_ub <100),
+  CONSTRAINT score_range_lb CHECK (q_score_lb > 0 AND q_score_lb <=100),
   CHECK (q_score_lb <= q_score_ub)
   CHECK (adjustment IN ('none', 'half a level', 'one level', 'one and a half levels',
                          'two levels', 'two and a half levels', 'three levels'))
