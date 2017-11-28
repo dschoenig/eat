@@ -9,10 +9,10 @@ CREATE TABLE level_of_evidence(
   assessment_id INTEGER   NOT NULL,
   study_id      INTEGER   NOT NULL,
   study_design  TEXT      NOT NULL,
-  context       TEXT      NOT NULL,
-  focus         TEXT      NOT NULL,
-  question      TEXT      NOT NULL,
-  outcome       TEXT      NOT NULL,
+  res_context   TEXT      NOT NULL,  -- description of research context
+  res_focus     TEXT      NOT NULL,  -- description of research focus
+  res_question  TEXT      NOT NULL,  -- description of research question
+  res_outcome   TEXT      NOT NULL,  -- description of research outcome
   loe_final     TEXT      NOT NULL,  -- LoE after downgrading
   loe_pre       TEXT      NOT NULL,  -- LoE based on study design
   points_p      INTEGER   NOT NULL,  -- possible quality points, calculated
