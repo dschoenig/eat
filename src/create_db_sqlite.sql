@@ -8,9 +8,9 @@ CREATE TABLE level_of_evidence(
   record_id     INTEGER   NOT NULL,
   assessment_id INTEGER   NOT NULL,
   study_id      INTEGER   NOT NULL,
-  study_design  TEXT      NOT NULL,
+  study_design  TEXT      NOT NULL,  -- type of study desing
   res_context   TEXT      NOT NULL,  -- description of research context
-  res_focus     TEXT      NOT NULL,  -- description of research focus
+  res_focus     TEXT      NOT NULL,  -- type of research focus
   res_question  TEXT      NOT NULL,  -- description of research question
   res_outcome   TEXT      NOT NULL,  -- description of research outcome
   loe_final     TEXT      NOT NULL,  -- LoE after downgrading
@@ -35,7 +35,7 @@ CREATE TABLE level_of_evidence(
                          'Multiple lines of moderate evidence', 'Inferential',
                          'Descriptive', 'Multiple lines of weak evidence',
                          'Expert opinion', 'Mechanism-based')),
-  CHECK (focus IN ('Quantification', 'Valuation', 'Management', 'Governance')),
+  CHECK (res_focus IN ('Quantification', 'Valuation', 'Management', 'Governance')),
   CHECK (loe_final IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4')),
   CHECK (loe_pre IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4')),
   CHECK (points_q <= points_p),
@@ -59,10 +59,10 @@ CREATE TABLE level_of_evidence(
 CREATE TABLE studies(
   study_id      INTEGER   NOT NULL,
   abbreviation  TEXT      NOT NULL,  -- formatted as AuthorYear
-  authors       TEXT      NOT NULL,
-  title         TEXT      NOT NULL,
-  year          INTEGER   NOT NULL,
-  doi           TEXT,
+  authors       TEXT      NOT NULL,  -- study author(s)
+  title         TEXT      NOT NULL,  -- study title
+  year          INTEGER   NOT NULL,  -- publication year of study
+  doi           TEXT,                -- DOI of study
   bibtex        TEXT      NOT NULL,  -- citation in bibtex format
 
   /* Keys */
@@ -93,8 +93,8 @@ CREATE TABLE checklist(
   question_id   INTEGER   NOT NULL,  -- corresponds to number in checklist
   q_group       TEXT      NOT NULL,  -- corresponds to group in checklist
   q_subgroup    TEXT      NOT NULL,  -- corresponds to subgroup in checklist
-  question      TEXT      NOT NULL,
-  description   TEXT      NOT NULL,
+  question      TEXT      NOT NULL,  -- question text
+  description   TEXT,                -- question description
 
   /* Keys */
   PRIMARY KEY(question_id),
@@ -127,21 +127,36 @@ CREATE TABLE quality(
   CHECK (answer IN ("yes", "no", NULL))
 );
 
-CREATE TABLE downgrading(
-  rule_id       INTEGER   NOT NULL,  -- rule identifier
+CREATE TABLE adjustments(
+  adjustment_id INTEGER   NOT NULL,  -- adjustment identifier
   q_score_ub    INTEGER   NOT NULL,  -- upper bound (inclusive) of quality score range as percentage
   q_score_lb    INTEGER   NOT NULL,  -- lower bound (exclusive) of quality score range as percentage
-  adjustment    TEXT      NOT NULL,  -- adjustments for final level of evidence
+  adjustment    TEXT      UNIQUE NOT NULL,  -- adjustment to LoE based on quality score range
+
+  /* Keys */
+  PRIMARY KEY (adjustment_id),
+
+  /* Checks */
+  CONSTRAINT score_range_ub CHECK (q_score_ub >= 0 AND q_score_ub <=100),
+  CONSTRAINT score_range_lb CHECK (q_score_lb >= -1 AND q_score_lb <=100),
+  CHECK (q_score_lb <= q_score_ub),
+  CHECK (adjustment IN ('none', 'half a level', 'one level', 'one and a half levels',
+                         'two levels', 'two and a half levels', 'three levels'))
+);
+
+CREATE TABLE downgrading(
+  rule_id       INTEGER   NOT NULL,  -- rule identifier
+  adjustment_id INTEGER   NOT NULL,  -- adjustment identifier
+  loe_pre       TEXT      NOT NULL,  -- LoE based on study designs
+  loe_final     TEXT      NOT NULL,  -- LoE after downgrading
 
   /* Keys */
   PRIMARY KEY (rule_id),
+  FOREIGN KEY (adjustment_id) REFERENCES adjustments(adjustment_id),
 
   /* Checks */
-  CONSTRAINT score_range_ub CHECK (q_score_ub >= 0 AND q_score_ub <100),
-  CONSTRAINT score_range_lb CHECK (q_score_lb > 0 AND q_score_lb <=100),
-  CHECK (q_score_lb <= q_score_ub)
-  CHECK (adjustment IN ('none', 'half a level', 'one level', 'one and a half levels',
-                         'two levels', 'two and a half levels', 'three levels'))
+  CHECK (loe_pre IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4')),
+  CHECK (loe_final IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4'))
 );
 
 COMMIT;
