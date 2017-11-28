@@ -25,7 +25,7 @@ CREATE TABLE level_of_evidence(
   PRIMARY KEY(record_id),
   FOREIGN KEY(assessment_id) REFERENCES assessments(assessment_id),
   FOREIGN KEY(study_id) REFERENCES studies(study_id),
-  FOREIGN KEY(downgrading) REFERENCES downgrading(adjustment),
+  FOREIGN KEY(downgrading) REFERENCES adjustments(adjustment),
   /* NB: for new records, the studies, assessor, and assements tables
   must be populated first */
 
