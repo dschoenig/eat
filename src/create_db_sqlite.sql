@@ -48,7 +48,6 @@ CREATE TABLE studies(
   title         TEXT      NOT NULL,  -- study title
   year          INTEGER   NOT NULL,  -- publication year of study
   doi           TEXT,                -- DOI of study
-  bibtex        TEXT      NOT NULL,  -- citation in bibtex format
 
   /* Keys */
   PRIMARY KEY(study_id)
