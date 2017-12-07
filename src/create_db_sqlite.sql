@@ -111,7 +111,7 @@ CREATE TABLE quality(
   assessment_id INTEGER   NOT NULL,
   study_id      INTEGER   NOT NULL,
   question_id   INTEGER   NOT NULL,
-  answer        TEXT,
+  answer        TEXT      NOT NULL,
 
   /* Keys */
   CONSTRAINT quality_pk PRIMARY KEY (assessment_id, study_id, question_id),
@@ -120,7 +120,7 @@ CREATE TABLE quality(
   FOREIGN KEY (question_id) REFERENCES checklist(question_id),
 
   /* Checks */
-  CHECK (answer IN ("yes", "no", NULL))
+  CHECK (answer IN ('yes', 'no', 'na'))
 );
 
 CREATE TABLE adjustments(
