@@ -1,3 +1,36 @@
+/* Initialize study design and corresponding level of evidence*/
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Systematic review','LoE1a')
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Conventional review','LoE1b')
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Case control','LoE2a')
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Before-after control-impact','LoE2a')
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Multiple lines of moderate evidence','LoE2b')
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Observational (Inferential)','LoE3a')
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Observational (Descriptive)','LoE3b')
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Multiple lines of weak evidence','LoE3c')
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Expert opinion','LoE4')
+
+INSERT INTO study_design(study_design, loe_pre)
+      VALUES ('Mechanism-based reasoning','LoE4')
+
+
 /* Initialize checklist */
 
 INSERT INTO checklist(question_id, q_group, q_subgroup, question, description)

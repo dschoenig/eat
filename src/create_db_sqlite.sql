@@ -8,7 +8,7 @@ CREATE TABLE level_of_evidence(
   record_id     INTEGER   NOT NULL,
   assessment_id INTEGER   NOT NULL,
   study_id      INTEGER   NOT NULL,
-  study_design  TEXT      NOT NULL,  -- type of study desing
+  study_design  TEXT      NOT NULL,  -- type of study design
   res_context   TEXT      NOT NULL,  -- description of research context
   res_focus     TEXT      NOT NULL,  -- type of research focus
   res_question  TEXT      NOT NULL,  -- description of research question
@@ -26,15 +26,11 @@ CREATE TABLE level_of_evidence(
   FOREIGN KEY(assessment_id) REFERENCES assessments(assessment_id),
   FOREIGN KEY(study_id) REFERENCES studies(study_id),
   FOREIGN KEY(downgrading) REFERENCES adjustments(adjustment),
+  FOREIGN KEY(study_design, loe_pre) REFERENCES study_designs(study_design, loe_pre),
   /* NB: for new records, the studies, assessor, and assements tables
   must be populated first */
 
   /* Checks */
-  CHECK (study_design IN ('Systematic review', 'Conventional review',
-                         'Case control', 'Before-after control-impact',
-                         'Multiple lines of moderate evidence', 'Inferential',
-                         'Descriptive', 'Multiple lines of weak evidence',
-                         'Expert opinion', 'Mechanism-based')),
   CHECK (res_focus IN ('Quantification', 'Valuation', 'Management', 'Governance')),
   CHECK (loe_final IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4')),
   CHECK (loe_pre IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4')),
@@ -42,18 +38,7 @@ CREATE TABLE level_of_evidence(
   CONSTRAINT score_range CHECK (q_score>= 0 AND q_score <=100),
   CHECK (downgrading IN ('none', 'half a level', 'one level', 'one and a half levels',
                          'two levels', 'two and a half levels', 'three levels')),
-  CHECK (reviewed IN ('yes', 'no')),
-  CONSTRAINT study_design_loe_pre  -- possible matchings between design and loe_pre
-       CHECK ((study_design = 'Systematic review' AND loe_pre = 'LoE1a') OR
-              (study_design = 'Conventional review' AND loe_pre = 'LoE1b') OR
-              (study_design = 'Case control' AND loe_pre = 'LoE2a') OR
-              (study_design = 'Before-after control-impact' AND loe_pre = 'LoE2a') OR
-              (study_design = 'Multiple lines of moderate evidence' AND loe_pre = 'LoE2b') OR
-              (study_design = 'Observational (Inferential)' AND loe_pre = 'LoE3a') OR
-              (study_design = 'Observational (Descriptive)' AND loe_pre = 'LoE3b') OR
-              (study_design = 'Multiple lines of weak evidence' AND loe_pre = 'LoE3c') OR
-              (study_design = 'Expert opinion' AND loe_pre = 'LoE4') OR
-              (study_design = 'Mechanism-based reasoning' AND loe_pre = 'LoE4'))
+  CHECK (reviewed IN ('yes', 'no'))
 );
 
 CREATE TABLE studies(
@@ -87,6 +72,17 @@ CREATE TABLE assessments(
   /* Keys */
   PRIMARY KEY(assessment_id),
   FOREIGN KEY(assessor_id) REFERENCES assessors(assessor_id)
+);
+
+CREATE TABLE study_designs(
+  study_design  TEXT      NOT NULL,  -- type of study design
+  loe_pre       TEXT      NOT NULL,  -- LoE based on study design
+
+  /* Keys */
+  PRIMARY KEY(study_design, loe_pre),
+
+  /* Checks */
+  CHECK (loe_pre IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4'))
 );
 
 CREATE TABLE checklist(
