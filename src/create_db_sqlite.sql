@@ -126,13 +126,13 @@ CREATE TABLE adjustments(
   adjustment_id INTEGER   NOT NULL,  -- adjustment identifier
   q_score_ub    INTEGER   NOT NULL,  -- upper bound (inclusive) of quality score range as percentage
   q_score_lb    INTEGER   NOT NULL,  -- lower bound (exclusive) of quality score range as percentage
-  adjustment    TEXT      UNIQUE NOT NULL,  -- adjustment to LoE based on quality score range
+  adjustment    TEXT      NOT NULL,  -- adjustment to LoE based on quality score range
 
   /* Keys */
   PRIMARY KEY (adjustment_id),
 
   /* Checks */
-  CONSTRAINT score_range_ub CHECK (q_score_ub >= 0 AND q_score_ub <=100),
+  CONSTRAINT score_range_ub CHECK (q_score_ub >= -1 AND q_score_ub <=100),
   CONSTRAINT score_range_lb CHECK (q_score_lb >= -10 AND q_score_lb <=100),
   CHECK (q_score_lb <= q_score_ub),
   CHECK (adjustment IN ('none', 'half a level', 'one level', 'one and a half levels',
