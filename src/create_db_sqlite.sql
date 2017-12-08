@@ -17,7 +17,7 @@ CREATE TABLE level_of_evidence(
   loe_pre       TEXT      NOT NULL,  -- LoE based on study design
   points_p      INTEGER   NOT NULL,  -- possible quality points, calculated
   points_q      INTEGER   NOT NULL,  -- quality points achieved, calculated
-  q_score       REAL      NOT NULL,  -- quality score as percentage, calculated
+  q_score       REAL,                -- quality score as percentage, calculated
   downgrading   TEXT      NOT NULL,  -- downgrading based on quality score
   reviewed      TEXT      NOT NULL,  -- whether validity of databse entry has been reviewed
 
@@ -133,7 +133,7 @@ CREATE TABLE adjustments(
 
   /* Checks */
   CONSTRAINT score_range_ub CHECK (q_score_ub >= 0 AND q_score_ub <=100),
-  CONSTRAINT score_range_lb CHECK (q_score_lb >= -1 AND q_score_lb <=100),
+  CONSTRAINT score_range_lb CHECK (q_score_lb >= -10 AND q_score_lb <=100),
   CHECK (q_score_lb <= q_score_ub),
   CHECK (adjustment IN ('none', 'half a level', 'one level', 'one and a half levels',
                          'two levels', 'two and a half levels', 'three levels'))

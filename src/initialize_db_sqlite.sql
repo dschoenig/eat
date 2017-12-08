@@ -185,6 +185,10 @@ INSERT INTO adjustments(adjustment_id, q_score_ub, q_score_lb, adjustment)
 INSERT INTO adjustments(adjustment_id, q_score_ub, q_score_lb, adjustment)
      VALUES (7,24,-0.1,'three levels');
 
+INSERT INTO adjustments(adjustment_id, q_score_ub, q_score_lb, adjustment)
+     VALUES (8,-0.1,-10,'none');
+
+
 /* Initialize rules for downgrading */
 
 INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
@@ -354,3 +358,24 @@ INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
 
 INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
      VALUES (56,7,'LoE4','LoE4');
+
+INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
+     VALUES (57,8,'LoE1a','LoE1a');
+
+INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
+     VALUES (58,8,'LoE1a','LoE1b');
+
+INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
+     VALUES (59,8,'LoE1a','LoE2a');
+
+INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
+     VALUES (60,8,'LoE1a','LoE2b');
+
+INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
+     VALUES (61,8,'LoE1a','LoE3a');
+
+INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
+     VALUES (62,8,'LoE1a','LoE3b');
+
+INSERT INTO downgrading(rule_id, adjustment_id, loe_pre, loe_final)
+     VALUES (63,8,'LoE1a','LoE4');
