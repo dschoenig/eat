@@ -31,13 +31,12 @@ CREATE TABLE level_of_evidence(
   must be populated first */
 
   /* Checks */
+  CONSTRAINT assessment_study UNIQUE(assessment_id, study_id),
   CHECK (res_focus IN ('Quantification', 'Valuation', 'Management', 'Governance')),
   CHECK (loe_final IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4')),
   CHECK (loe_pre IN ('LoE1a', 'LoE1b', 'LoE2a', 'LoE2b', 'LoE3a', 'LoE3b', 'LoE3c', 'LoE4')),
   CHECK (points_q <= points_p),
-  CONSTRAINT score_range CHECK (q_score>= 0 AND q_score <=100),
-  CHECK (downgrading IN ('none', 'half a level', 'one level', 'one and a half levels',
-                         'two levels', 'two and a half levels', 'three levels')),
+  CONSTRAINT score_range CHECK (q_score IS NULL OR (q_score>= -1 AND q_score <=100)),
   CHECK (reviewed IN ('yes', 'no'))
 );
 
@@ -119,14 +118,14 @@ CREATE TABLE quality(
   FOREIGN KEY (question_id) REFERENCES checklist(question_id),
 
   /* Checks */
-  CHECK (answer IN ('yes', 'no', 'na'))
+  CHECK (answer IN ('yes', 'no', 'NA'))
 );
 
 CREATE TABLE adjustments(
   adjustment_id INTEGER   NOT NULL,  -- adjustment identifier
   q_score_ub    INTEGER   NOT NULL,  -- upper bound (inclusive) of quality score range as percentage
   q_score_lb    INTEGER   NOT NULL,  -- lower bound (exclusive) of quality score range as percentage
-  adjustment    TEXT      NOT NULL,  -- adjustment to LoE based on quality score range
+  adjustment    TEXT      NOT NULL  UNIQUE,  -- adjustment to LoE based on quality score range
 
   /* Keys */
   PRIMARY KEY (adjustment_id),
@@ -136,7 +135,7 @@ CREATE TABLE adjustments(
   CONSTRAINT score_range_lb CHECK (q_score_lb >= -10 AND q_score_lb <=100),
   CHECK (q_score_lb <= q_score_ub),
   CHECK (adjustment IN ('none', 'half a level', 'one level', 'one and a half levels',
-                         'two levels', 'two and a half levels', 'three levels'))
+                         'two levels', 'two and a half levels', 'three levels', 'NA'))
 );
 
 CREATE TABLE downgrading(
