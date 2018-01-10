@@ -1,9 +1,12 @@
 setwd("./src")
-source("functions.R")
+
+# install.packages("DBI", "RMySQL")
+
+source("functions_mysql.R")
 
 # Establish database connections
-con <- dbConnect(RSQLite::SQLite(), "../db/loe.db")
-
+con <- dbConnect(RMySQL::MySQL(), host="localhost", user="evidence_admin", password="biometry101", dbname="evidence_assessment")
+dbDisconnect(con)
 # Check initiliazed assessment tables
 dbGetQuery(con, 'SELECT * FROM study_designs')
 dbGetQuery(con, 'SELECT * FROM checklist')
@@ -11,19 +14,22 @@ dbGetQuery(con, 'SELECT * FROM adjustments')
 dbGetQuery(con, 'SELECT * FROM downgrading')
 
 
-# Check tables for data entry
+# Check tables for data entry (should be empty)
 dbGetQuery(con, 'SELECT * FROM assessors')
 dbGetQuery(con, 'SELECT * FROM studies')
 dbGetQuery(con, 'SELECT * FROM assessments')
 dbGetQuery(con, 'SELECT * FROM quality')
 dbGetQuery(con, 'SELECT * FROM level_of_evidence')
 
+
+# TODO: Ensure functionality with MySQL
+
 # General workflow: 1. Create Assesor; 2. Create Study; 3. Create Assessment; 4. Enter assessment data
 
 # 1. Register new assessors
 
 assessors <- data.frame(name=c("Mupepele et al.", "assessor2"), email=c("anne-christine.mupepele@biom.uni-freiburg.de","ex@mple.com"))
-
+ 
 new_assessors(assessors=assessors)
 
 # Query assessors

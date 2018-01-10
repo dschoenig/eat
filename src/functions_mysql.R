@@ -1,3 +1,5 @@
+# TODO: Ensure functionality with MySQL
+
 # R functions to interact with the evidence assessment database
 
 library(DBI)
