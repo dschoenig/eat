@@ -262,3 +262,5 @@ assess_study <- function(studies, assessment_id, answers, silent = FALSE){
 }
 
 # For Compatability with MySQL: use ? as placeholders and reformat column order of data.frames
+
+# Add/extend possibility to detect duplicates in new_assessor and new_study (fuzzy matchings, dois) [get ids of duplicate records and return]

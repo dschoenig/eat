@@ -1,4 +1,4 @@
-
+setwd("./src")
 source("functions.R")
 
 # Establish database connections
