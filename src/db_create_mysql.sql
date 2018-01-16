@@ -6,7 +6,7 @@ CREATE DATABASE evidence_assessment;
 USE evidence_assessment;
 
 CREATE TABLE studies(
-  study_id      INT           NOT NULL,
+  study_id      INT           NOT NULL,  AUTO_INCREMENT,
   abbreviation  VARCHAR(50)   NOT NULL,  -- formatted as AuthorYear
   authors       VARCHAR(500)  NOT NULL,  -- study author(s)
   title         VARCHAR(500)  NOT NULL,  -- study title
@@ -19,7 +19,7 @@ CREATE TABLE studies(
 
 
 CREATE TABLE assessors(
-  assessor_id   INT           NOT NULL,
+  assessor_id   INT           NOT NULL,  AUTO_INCREMENT,
   name          VARCHAR(500)  NOT NULL,  -- name of assessor
   email         VARCHAR(50)   NOT NULL,  -- email contact of assessor
 
@@ -81,7 +81,7 @@ CREATE TABLE adjustments(
 
 
 CREATE TABLE assessments(
-  assessment_id INT   NOT NULL,
+  assessment_id INT   NOT NULL,  AUTO_INCREMENT,
   assessor_id   INT   NOT NULL,
   date_entered  INT   NOT NULL,  -- entry date of records in format YYYY-MM-DD
   source        VARCHAR(500),    -- published source of assessments
@@ -110,8 +110,8 @@ CREATE TABLE quality(
 
 
 CREATE TABLE downgrading(
-  rule_id       INT   NOT NULL,  -- rule identifier
-  adjustment_id INT   NOT NULL,  -- adjustment identifier
+  rule_id       INT             NOT NULL,  -- rule identifier
+  adjustment_id INT             NOT NULL,  -- adjustment identifier
   loe_pre       VARCHAR(5)      NOT NULL,  -- LoE based on study designs
   loe_final     VARCHAR(5)      NOT NULL,  -- LoE after downgrading
 
@@ -126,7 +126,7 @@ CREATE TABLE downgrading(
 
 
 CREATE TABLE level_of_evidence (
-  record_id     INT           NOT NULL,
+  record_id     INT           NOT NULL,  AUTO_INCREMENT,
   assessment_id INT           NOT NULL,
   study_id      INT           NOT NULL,
   study_design  VARCHAR(50)   NOT NULL,  -- type of study design
