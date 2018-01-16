@@ -5,18 +5,39 @@
 library(DBI)
 library(tidyr)
 
-new_assessors <- function(assessors, silent = FALSE){
-  # assessors: either a named list (for one entry) or a data.frame (for several
-  # entries) with mandatory fields "name" and "email"
+###############################
+# FUNCTIONS FOR DATA ENTRY ----
+###############################
+
+new_assessors <- function(assessors){
+  # Creates new rows in the assessor table
+  #
+  # Args
+  #   assessors: Either a named list (for one entry) or a data.frame (for 
+  #       several entries) with mandatory fields "name" and "email"
+  #
+  # Returns: 
+  #   Those rows of the modified assessor table that correspond to the input
+  #   data.
   
-  assessors <- data.frame(lapply(assessors, as.character), stringsAsFactors = FALSE) # Coerce input
+  # Input data
+  input <- assessors
+  n <- length(input$name)
+  assessors <- data.frame("name" = character(n), "email" = character(n))
+  assessors$name <- as.character(input$name)
+  assessors$email <- as.character(input$email)
   
-  # Check whether assessors are already in database and remove duplicates from entry dataframe
-  duplicates <- dbGetQuery(con, "SELECT * FROM assessors WHERE name = :name;", param=list(name=assessors$name))
+  
+  # Check whether assessors are already in database and remove duplicates from 
+  # entry dataframe
+  duplicates <- dbGetQuery(con, "SELECT * FROM assessors WHERE name = ?;", 
+                           param=list(assessors$name))
   if(nrow(duplicates) != 0){
     duplicate_assessors <- unique(duplicates$name)
-    assessors_new <- subset(assessors, !(assessors$name %in% duplicate_assessors))
-    warning("One or more assessors are already registered.")
+    assessors_new <- subset(assessors, 
+                            !(assessors$name %in% duplicate_assessors))
+    warning("One or more assessors are already registered.","\n",
+            "Only new ones will be added; duplicate ones will not be modified.")
   } else {
     assessors_new <-  assessors 
   }
@@ -27,28 +48,46 @@ new_assessors <- function(assessors, silent = FALSE){
       # SQL statement for insertion
       insert_assessor <- dbSendStatement(con,
                                          "INSERT INTO assessors(name, email)
-                                         VALUES(:name, :email);")
-      dbBind(insert_assessor, param=assessors_new)  
+                                               VALUES (?, ?);")
+      dbBind(insert_assessor, param=list(assessors_new$name, 
+                                         assessors_new$email))  
       dbClearResult(insert_assessor)
   }
   
   # Get assigned IDs
-  if(silent == FALSE){
-    assessor_ids <- dbGetQuery(con, "SELECT * FROM assessors WHERE name = :name;", param=list(name=assessors$name))
-    return(assessor_ids)
-  }
+  assessor_ids <- dbGetQuery(con, "SELECT * FROM assessors WHERE name = ?;", param=list(assessors$name))
+  return(assessor_ids)
 }
 
-get_assesor_ids <- function(name = NULL){
-  if(is.null(name)){
+###################################
+# FUNCTIONS FOR DATA RETRIEVAL ----
+###################################
+
+get_assesor_ids <- function(select = NULL, field = "name"){
+  # Gets a list of assessors
+  #
+  # Args
+  #   select: Search term for defined field. If NULL the entire assessors table
+  #       is returned. Default is NULL.
+  #   field: Field to be queried; either "name" or "email". Default is "email".
+  #
+  # Returns
+  #   The entire assessors table or only rows matching the search term.
+  if(is.null(select)){
     assessors <- dbGetQuery(con, "SELECT * FROM assessors;")
   } else {
-    name <- paste("%", as.character(name), "%", sep = "")
-    assessors <- dbGetQuery(con, "SELECT * FROM assessors WHERE name LIKE :name;", param=list(name = name))
+    if(field == "name"){
+      select <- paste("%", as.character(select), "%", sep = "")
+      assessors <- dbGetQuery(con, "SELECT * FROM assessors WHERE name LIKE ?;", 
+                              param=list(select))
+    } else {
+      select <- paste("%", as.character(select), "%", sep = "")
+      assessors <- dbGetQuery(con, "SELECT * FROM assessors WHERE email LIKE ?;", 
+                              param=list(select))
+    }
   }
   return(assessors) 
 }
-
 
 new_studies <- function(studies, silent = FALSE){
   # studies: either a named list (for one entry) or a data.frame (for several

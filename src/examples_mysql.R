@@ -2,10 +2,10 @@ setwd("./src")
 
 # install.packages("DBI", "RMySQL")
 
-source("functions_mysql.R")
+# source("functions_mysql.R")
 
 # Establish database connections
-con <- dbConnect(RMySQL::MySQL(), host="localhost", user="evidence_admin", password="biometry101", dbname="evidence_assessment")
+con <- dbConnect(RMariaDB::MariaDB(), host="localhost", user="evidence_admin", password="biometry101", dbname="evidence_assessment")
 dbDisconnect(con)
 # Check initiliazed assessment tables
 dbGetQuery(con, 'SELECT * FROM study_designs')
@@ -22,7 +22,6 @@ dbGetQuery(con, 'SELECT * FROM quality')
 dbGetQuery(con, 'SELECT * FROM level_of_evidence')
 
 
-# TODO: Ensure functionality with MySQL
 
 # General workflow: 1. Create Assesor; 2. Create Study; 3. Create Assessment; 4. Enter assessment data
 
@@ -34,9 +33,9 @@ new_assessors(assessors=assessors)
 
 # Query assessors
 get_assesor_ids()
-get_assesor_ids(name="mu")
+get_assesor_ids(select="freiburg", field="email")
 
-
+# TODO: Ensure functionality with MySQL
 # 2. Register new studies
 
 examples <- read.csv("../data/example_studies.csv")
