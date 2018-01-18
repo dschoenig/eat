@@ -3,11 +3,12 @@
 # R functions to interact with the evidence assessment database
 
 library(DBI)
+library(stringdist)
 library(tidyr)
 
-###############################
-# FUNCTIONS FOR DATA ENTRY ----
-###############################
+############################ ##
+# FUNCTIONS FOR DATA ENTRY ####
+############################ ##
 
 new_assessors <- function(assessors){
   # Creates new rows in the assessor table
@@ -59,9 +60,9 @@ new_assessors <- function(assessors){
   return(assessor_ids)
 }
 
-###################################
-# FUNCTIONS FOR DATA RETRIEVAL ----
-###################################
+################################ ##
+# FUNCTIONS FOR DATA RETRIEVAL ####
+################################ ##
 
 get_assesor_ids <- function(select = NULL, field = "name"){
   # Gets a list of assessors

@@ -1,6 +1,7 @@
+setwd("~/Desktop/evidence assessment")
 setwd("./src")
 
-# install.packages("DBI", "RMySQL")
+# install.packages("DBI", "RMariaDB")
 
 # source("functions_mysql.R")
 
@@ -33,6 +34,7 @@ new_assessors(assessors=assessors)
 
 # Query assessors
 get_assesor_ids()
+get_assesor_ids(select="mu", field="email")
 get_assesor_ids(select="freiburg", field="email")
 
 # TODO: Ensure functionality with MySQL
