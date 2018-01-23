@@ -83,7 +83,7 @@ CREATE TABLE adjustments(
 CREATE TABLE assessments(
   assessment_id INT   NOT NULL AUTO_INCREMENT,
   assessor_id   INT   NOT NULL,
-  date_entered  INT   NOT NULL,  -- entry date of records in format YYYY-MM-DD
+  date_entered  DATE  NOT NULL,  -- entry date of records in format YYYY-MM-DD
   source        VARCHAR(500),    -- published source of assessments
 
   /* Keys */
