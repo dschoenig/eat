@@ -64,8 +64,8 @@ CREATE TABLE checklist(
 
 CREATE TABLE adjustments(
   adjustment_id INT           NOT NULL,  -- adjustment identifier
-  q_score_ub    INT           NOT NULL,  -- upper bound (inclusive) of quality score range as percentage
-  q_score_lb    INT           NOT NULL,  -- lower bound (exclusive) of quality score range as percentage
+  q_score_ub    FLOAT         NOT NULL,  -- upper bound (inclusive) of quality score range as percentage
+  q_score_lb    FLOAT         NOT NULL,  -- lower bound (exclusive) of quality score range as percentage
   adjustment    VARCHAR(50)   NOT NULL  UNIQUE,  -- adjustment to LoE based on quality score range
 
   /* Keys */
