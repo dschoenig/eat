@@ -6,25 +6,64 @@ setwd("./src")
 # source("functions_mysql.R")
 
 # Establish database connections
-con <- dbConnect(RMariaDB::MariaDB(), host="localhost", user="evidence_admin", password="biometry101", dbname="evidence_assessment")
-dbDisconnect(con)
+eaDB <- dbConnect(RMariaDB::MariaDB(), host="localhost", user="evidence_admin", password="biometry101", dbname="evidence_assessment")
+dbDisconnect(eaDB)
+
 # Check initiliazed assessment tables
-dbGetQuery(con, 'SELECT * FROM study_designs')
-dbGetQuery(con, 'SELECT * FROM checklist')
-dbGetQuery(con, 'SELECT * FROM adjustments')
-dbGetQuery(con, 'SELECT * FROM downgrading')
+dbGetQuery(eaDB, 'SELECT * FROM study_designs')
+dbGetQuery(eaDB, 'SELECT * FROM checklist')
+dbGetQuery(eaDB, 'SELECT * FROM adjustments')
+dbGetQuery(eaDB, 'SELECT * FROM downgrading')
 
 
 # Check tables for data entry (should be empty)
-dbGetQuery(con, 'SELECT * FROM assessors')
-dbGetQuery(con, 'SELECT * FROM studies')
-dbGetQuery(con, 'SELECT * FROM assessments')
-dbGetQuery(con, 'SELECT * FROM quality')
-dbGetQuery(con, 'SELECT * FROM level_of_evidence')
+dbGetQuery(eaDB, 'SELECT * FROM assessors')
+dbGetQuery(eaDB, 'SELECT * FROM studies')
+dbGetQuery(eaDB, 'SELECT * FROM assessments')
+dbGetQuery(eaDB, 'SELECT * FROM quality')
+dbGetQuery(eaDB, 'SELECT * FROM level_of_evidence')
 
 
 
 # General workflow: 1. Create Assesor; 2. Create Study; 3. Create Assessment; 4. Enter assessment data
+
+# 1 Register new studies
+examples <- read.csv("../data/example_studies.csv")
+studies <- examples[,1:5]
+
+CreateStudies(studies)
+GetStudies("eco", "title")
+
+# 2. Register new assessor
+assessors <- data.frame(name=c("Mupepele et al.", "assessor2"), email=c("anne-christine.mupepele@biom.uni-freiburg.de","ex@mple.com"))
+
+CreateAssessors(assessors)
+GetAssessors()
+
+# 3. Register new assessment
+
+assessments <- data.frame(assessor_id=c("1","2"), source=c("Mupepele et al. 2016", "no source"))
+CreateAssessments(assessments, date="2015-11-23")
+GetAssessments()
+
+
+# 4. Assess studies
+# change to fill template step by step
+studies <- TemplateAssessStudies(13)
+study_id <- GetStudies(examples[,1], field="abbreviation", mode="exact")
+studies$study_id <- study_id$study_id
+studies <- cbind(study_id$study_id, examples)
+
+colnames(examples)
+AssessStudies(studies = studies, assessment_id = 1)
+assess_study(studies = studies, assessment_id = 1, answers = answers)
+GetFullRecords()
+GetFullRecords(ids.only = T)
+GetStudies(select=2006:2015, field="year", ids.only = F)
+GetStudies(select=2010:2018, field="year", ids.only = T)
+GetStudies(select=2018:2010, field="year", ids.only = T)
+
+# Old Examples ----
 
 # 1. Register new assessors
 
@@ -37,11 +76,13 @@ get_assesor_ids()
 get_assesor_ids(select="mu", field="email")
 get_assesor_ids(select="freiburg", field="email")
 
-# TODO: Ensure functionality with MySQL
 # 2. Register new studies
 
 examples <- read.csv("../data/example_studies.csv")
-new_studies(examples[,1:5])
+studies <- examples[,1:5]
+
+CreateStudies(studies)
+GetStudies("eco", "title")
 
 # Query studies
 get_study_ids()
@@ -62,24 +103,20 @@ get_assessment_ids(query="2017-12-08", mode="before")
 get_assessment_ids(query="2017-12-08", mode="after")
 
 # 4. Assess studies
+# change to fill template step by step
+studies <- TemplateAssessStudies(13)
+study_id <- GetStudies(examples[,1], field="abbreviation", mode="exact")
+studies$study_id <- study_id$study_id
+studies <- cbind(study_id$study_id, examples)
 
-study_id <- get_study_ids(examples[,1], mode = "abbreviation")[,1]
-studies <- cbind(study_id, examples[,6:10])
-answers <- examples[,11:53]
-
+colnames(examples)
 assess_study(studies = studies, assessment_id = 1, answers = answers)
 
 # Query database
-full_record <- dbGetQuery(con, "SELECT *
-                                FROM studies
-                                JOIN level_of_evidence JOIN assessments JOIN assessors
-                                ON studies.study_id = level_of_evidence.study_id
-                                AND assessments.assessment_id = level_of_evidence.assessment_id
-                                AND assessments.assessor_id = assessors.assessor_id;")
-names(full_record)
-full_record[1,]
 
 
 
 # Disconnect from database
 dbDisconnect(con)
+
+# Additional comments: database name difference

@@ -135,11 +135,10 @@ CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
   return(assessment_ids)
 }
 
-# Different workflow: enter answers to questions first, then perform calculations
-conn=eaDB
-assessment_id=1
 AssessStudies <- function(studies, assessment_id, conn=eaDB){
+  # TODO: check whether combination of assessment and study ids is already present in LoE table
   
+  # Get info on checklist
   n_questions <- as.integer(dbGetQuery(conn, "SELECT COUNT(*) FROM checklist")[1,1])
   c_questions <- paste0("q",seq(1:n_questions))
     
@@ -230,7 +229,7 @@ AssessStudies <- function(studies, assessment_id, conn=eaDB){
   # Add assigned prliminary LoE
   studies$loe_pre <- loe_pre$loe_pre
   
-  # Calculate quality scores
+  # Calculate quality scores; calculations are performed at the database level
   qscores <- dbGetQuery(conn, "SELECT study_id, 
                                       n_yes + n_no AS 'points_p',
                                       n_yes AS 'points_q',
@@ -261,11 +260,10 @@ AssessStudies <- function(studies, assessment_id, conn=eaDB){
                                   WHERE adjustment_id = ? AND loe_pre = ?;", 
                           param=list(adjustments$adjustment_id, studies$loe_pre))
   studies$loe_final <- loe_final$loe_final
-  studies$q_score[studies$q_score == -9] <- "NULL"
+  studies$q_score[studies$q_score == -9] <- NA  # Reset to NA
   
-  studies_n <- studies[1,]
-  i=1
-  # Enter complete information into level_of_evidence table
+  # Enter complete information into level_of_evidence table; NA entries in R
+  # data frames will be entered as NULL in database
   assess_study <- dbSendStatement(conn,"INSERT INTO level_of_evidence(
                                                assessment_id, 
                                                study_id, 
@@ -282,131 +280,42 @@ AssessStudies <- function(studies, assessment_id, conn=eaDB){
                                                downgrading, 
                                                reviewed)
                                   VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'no');")
-
-
-  for(i in 1:nrow(studies)){
-    i=1
-    dbBind(assess_study, params = list(studies$assessment_id[i], 
-                                       studies$study_id[i], 
-                                       studies$study_design[i], 
-                                       studies$res_context[i], 
-                                       studies$res_focus[i], 
-                                       studies$res_question[i], 
-                                       studies$res_outcome[i], 
-                                       studies$loe_final[i], 
-                                       studies$loe_pre[i],
-                                       as.integer(studies$points_p)[i], # remove?
-                                       as.integer(studies$points_q)[i], 
-                                       studies$q_score[i]), 
-                                       studies$downgrading[i]))
+  dbBind(assess_study, params = list(studies$assessment_id, 
+                                     studies$study_id, 
+                                     studies$study_design, 
+                                     studies$res_context, 
+                                     studies$res_focus, 
+                                     studies$res_question, 
+                                     studies$res_outcome, 
+                                     studies$loe_final, 
+                                     studies$loe_pre,
+                                     as.integer(studies$points_p), # remove?
+                                     as.integer(studies$points_q), 
+                                     studies$q_score, 
+                                     studies$downgrading))
+  dbClearResult(assess_study)
+  
+  # Get part of table for return
+  new_records <- dbGetQuery(conn, "SELECT record_id,
+                                          assessment_id, 
+                                          study_id, 
+                                          study_design, 
+                                          loe_pre, points_p, 
+                                          points_q, q_score, 
+                                          downgrading, 
+                                          loe_final
+                                     FROM level_of_evidence
+                                    WHERE assessment_id = ? AND study_id = ?;", 
+                            params=list(studies$assessment_id, studies$study_id))
+  return(new_records)
   }
-  
-  dbClearResult(assess_study)
-  
-  }
-
-
-AssessStudy_OLD <- function(studies, assessment_id, answers, silent = FALSE){
-  # studies: named list or data.frame with mandatory fields "study_id" (matches
-  # "study_id" in "studies" table), "study_design", "res_context", "res_focus",
-  # and "res_outcome"
-  # assessment_id: matching "assessment_id" in the "assessments" table
-  # answers: data.frame with on row per study to be assessed, provided in the
-  # same order as for "studies"; column number has to match question_id; answers
-  # are 1 for "yes", 0 for "no" and NA in case question does not apply
-  
-  n_entries <- nrow(studies) # number of new entries
-  studies <- data.frame(lapply(studies, as.character), stringsAsFactors = FALSE)
-  studies$assessment_id <- rep(as.character(assessment_id), n_entries)
-  # Define order to use ? placeholders
-  studies <- select(studies, study_id, study_design, res_context, res_focus, res_question, res_outcome, assessment_id)
-  
-  ## Preliminary LoE  
-  # look up preliminary LoE based on study design
-  loe_pre <- dbGetQuery(con, "SELECT loe_pre FROM study_designs WHERE study_design = ?;", param=unname(studies[2]))
-  
-  
-  ## Calculate quality scores
-  # reformat answers data.frame
-  answers[which(answers!=1 & answers != 0, arr.ind = T)] <- NA
-  answers[is.na(answers)] <- "NA"
-  answers <- data.frame(lapply(answers, as.character), stringsAsFactors = FALSE)
-  n_questions <- as.integer(dbGetQuery(con, "SELECT count(question_id) FROM checklist;"))
-  names(answers) <- 1:n_questions
-  
-  # scores
-  points_p <- rowSums(answers == 0 | answers == 1)
-  points_q <- rowSums(answers == 1)
-  q_score <- round(points_q/points_p, 4) * 100
-  
-  ## Look up downgrading
-  q_score_query <- q_score
-  q_score_query[is.nan(q_score)] <- "-9" # placeholder value for NaN
-  adjustments <- dbGetQuery(con, "SELECT adjustment_id, adjustment AS downgrading FROM adjustments WHERE q_score_ub >= ? AND q_score_lb < ?;", param=list(q_score_query, q_score_query))
-  
-  loe_final <- dbGetQuery(con, "SELECT loe_final FROM downgrading WHERE adjustment_id = ? AND loe_pre = ?;", param=unname(cbind(adjustments$adjustment_id, loe_pre)))
-  
-  ## combine results
-  loe <- cbind(studies[,c(7,1:6)], loe_final, loe_pre, points_p, points_q, q_score, downgrading=adjustments$downgrading, reviewed = rep("no",n_entries))
-  loe <- data.frame(lapply(loe, as.character), stringsAsFactors = FALSE)
-  
-  
-  ## Enter records
-  loe_no_nan <- loe[loe$q_score != "NaN",]
-  loe_nan <- loe[loe$q_score == "NaN",]
-  
-  # enter records with valid quality score
-  
-  dbExecute(con, "PRAGMA foreign_keys = ON;") # Enable foreign key constraints
-  assess_study <- dbSendStatement(con,
-                                  "INSERT INTO level_of_evidence(assessment_id, study_id, study_design, 
-                                  res_context, res_focus, res_question, res_outcome, loe_final, loe_pre,                                          points_p, points_q, q_score, downgrading, reviewed)
-                                  VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);")
-  dbBind(assess_study, params = unname(loe_no_nan))
-  dbClearResult(assess_study)
-  
-  # enter records without quality score
-  dbExecute(con, "PRAGMA foreign_keys = ON;") # Enable foreign key constraints
-  assess_study <- dbSendStatement(con,
-                                  "INSERT INTO level_of_evidence(assessment_id, study_id, study_design, 
-                                  res_context, res_focus, res_question, res_outcome, loe_final, loe_pre,                                          points_p, points_q, q_score, downgrading, reviewed)
-                                  VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?);")
-  dbBind(assess_study, params = unname(loe_nan[,-12]))
-  dbClearResult(assess_study)
-  
-  
-  
-  ## enter detailed results of quality assessment
-  quality <- cbind(assessment_id = as.numeric(studies[,7]), study_id = as.numeric(studies[,1]), answers)
-  quality <- gather(quality, key="question_id", value="answer", -assessment_id, -study_id)
-  quality <- arrange(quality, assessment_id, study_id)
-  quality$answer[which(quality$answer == 1)] <- "yes"
-  quality$answer[which(quality$answer == 0)] <- "no"
-  
-  enter_answers <- dbSendStatement(con,
-                                   "INSERT INTO quality(assessment_id, study_id, question_id, answer)
-                                   VALUES(?, ?, ?, ?);")
-  dbBind(enter_answers, params = unname(quality))
-  dbClearResult(assess_study)
-  
-  
-  
-  if(silent == FALSE){
-    records <- dbGetQuery(con, 
-                          "SELECT record_id, assessment_id, study_id, loe_pre, loe_final 
-                          FROM level_of_evidence WHERE study_id = ? AND assessment_id = ?;", 
-                          param=unname(studies[,c(1,7)]))
-    return(records)
-  }
-}
-
 
 ################################ ##
 # FUNCTIONS FOR DATA RETRIEVAL ####
 ################################ ##
 
 
-GetRecords <- function(select=NULL, field=NULL, table, 
+GetRecords <- function(select=NULL, field=NULL, ids.only=FALSE, table, 
                        mode="similar", fuzzy.th=0.25, conn=eaDB) {
   
   # Check for existance of table
@@ -441,7 +350,6 @@ GetRecords <- function(select=NULL, field=NULL, table,
     query <- paste0("SELECT * FROM ", 
                     dbQuoteIdentifier(conn, table), ";")
     results <- dbGetQuery(conn, query)
-    return(results)
   } else {
     
     # Perform query depending on query mode
@@ -454,7 +362,6 @@ GetRecords <- function(select=NULL, field=NULL, table,
                       dbQuoteIdentifier(conn, field), 
                       " LIKE ?;")
       results <- dbGetQuery(conn, query, params=list(select))
-      return(results)
     }
     
     if(mode == "exact"){
@@ -464,7 +371,6 @@ GetRecords <- function(select=NULL, field=NULL, table,
                       dbQuoteIdentifier(conn, field), 
                       " = ?;")
       results <- dbGetQuery(conn, query, params=list(select))
-      return(results)
     }
     
     if(mode == "fuzzy"){
@@ -492,42 +398,247 @@ GetRecords <- function(select=NULL, field=NULL, table,
         }
         results <- results[order(results$distance), ]
         dbClearResult(res)
-        return(results)
       } else {
         dbClearResult(res)
-        return(res_part)
+        results <- res_part
       }
     }
   }
+  
+  if(ids.only == TRUE){
+    # Reduce columns of result set to id columns only
+    id_col <- which(grepl("_id", names(results)))
+    if(length(id_col) != 0){
+      results <- results[,id_col]
+    } else {
+      warning("No ID columns found in results. All columns will be included.")
+    }
+  }
+  return(results)
 }
 
-GetStudies <- function(select=NULL, field=NULL, 
+GetStudies <- function(select=NULL, field=NULL, ids.only = FALSE,
                        mode="similar", fuzzy.th=0.25, conn=eaDB){
   
-  results <- GetRecords(select=select, field=field, table="studies", 
-                        mode=mode, fuzzy.th=fuzzy.th, conn=conn)
-  
+  results <- GetRecords(select=select, field=field, ids.only = ids.only,
+                        table="studies", mode=mode, 
+                        fuzzy.th=fuzzy.th, conn=conn)
   return(results)
 }
 
-GetAssessors <- function(select=NULL, field=NULL, 
+GetAssessors <- function(select=NULL, field=NULL, ids.only = FALSE,
                          mode="similar", fuzzy.th=0.25, conn=eaDB){
   
-  results <- GetRecords(select=select, field=field, table="assessors", 
-             mode=mode, fuzzy.th=fuzzy.th, conn=conn)
+  results <- GetRecords(select=select, field=field, ids.only = ids.only,
+                        table="assessors", mode=mode, fuzzy.th=fuzzy.th, 
+                        conn=conn)
   return(results)
   
 }
 
-GetAssessments <- function(select=NULL, field=NULL, 
+GetAssessments <- function(select=NULL, field=NULL, ids.only = FALSE,
                            mode="similar", fuzzy.th=0.25, conn=eaDB){
   
-  results <- GetRecords(select=select, field=field, table="assessments", 
-                        mode=mode, fuzzy.th=fuzzy.th, conn=conn)
+  results <- GetRecords(select=select, field=field, ids.only = ids.only, 
+                        table="assessments", mode=mode, fuzzy.th=fuzzy.th, 
+                        conn=conn)
   
   return(results)
 }
 
+GetLoE <- function(select=NULL, field=NULL, ids.only = FALSE,
+                   mode="similar", fuzzy.th=0.25, conn=eaDB){
+  
+  results <- GetRecords(select=select, field=field, ids.only = ids.only, 
+                        table="level_of_evidence", mode=mode, 
+                        fuzzy.th=fuzzy.th, conn=conn)
+  
+  return(results)
+}
+
+GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
+                           mode="similar", fuzzy.th=0.25, conn=eaDB){
+  
+  # If query term is provided but no field name, warn that entire table will be
+  # returned
+  if(!is.null(select) && is.null(field)){
+    warning(paste0("No field name provided for query term '", select, 
+                   "'. Entire table will be returned."))
+    select  <-  NULL
+  }
+  
+  # Return entire table if no query is entered; else perform query
+  if(is.null(select) && is.null(field)){
+    results <-  dbGetQuery(conn, "SELECT record_id,
+                           assessment_id,
+                           study_id,
+                           assessor_id,
+                           abbreviation AS 'studies.abbreviation',
+                           authors AS 'studies.authors',
+                           title AS 'studies.title',
+                           year AS 'studies.year',
+                           doi AS 'studies.doi',
+                           name AS 'assessors.name',
+                           email AS 'assessors.email',
+                           date_entered AS 'assessments.date_entered',
+                           source AS 'assessments.source',
+                           study_design AS 'loe.study_design',
+                           res_context AS 'loe.res_context',
+                           res_focus AS 'loe.res_focus',
+                           res_question AS 'loe.res_question',
+                           res_outcome AS 'loe.res_outcome',
+                           loe_pre AS 'loe.loe_pre',
+                           loe_final AS 'loe.loe_final',
+                           points_p AS 'loe.points_p',
+                           points_q AS 'loe.points_q',
+                           q_score AS 'loe.q_score',
+                           downgrading AS 'loe.downgrading',
+                           reviewed AS 'loe.reviewed'
+                           FROM studies
+                           JOIN level_of_evidence USING(study_id)
+                           JOIN assessments USING(assessment_id)
+                           JOIN assessors USING(assessor_id);")
+  } else {
+    if(mode == "similar"){
+      select <- paste("%", as.character(select), "%", sep = "")
+      query <- paste0("SELECT record_id,
+                      assessment_id,
+                      study_id,
+                      assessor_id,
+                      abbreviation AS 'studies.abbreviation',
+                      authors AS 'studies.authors',
+                      title AS 'studies.title',
+                      year AS 'studies.year',
+                      doi AS 'studies.doi',
+                      name AS 'assessors.name',
+                      email AS 'assessors.email',
+                      date_entered AS 'assessments.date_entered',
+                      source AS 'assessments.source',
+                      study_design AS 'loe.study_design',
+                      res_context AS 'loe.res_context',
+                      res_focus AS 'loe.res_focus',
+                      res_question AS 'loe.res_question',
+                      res_outcome AS 'loe.res_outcome',
+                      loe_pre AS 'loe.loe_pre',
+                      loe_final AS 'loe.loe_final',
+                      points_p AS 'loe.points_p',
+                      points_q AS 'loe.points_q',
+                      q_score AS 'loe.q_score',
+                      downgrading AS 'loe.downgrading',
+                      reviewed AS 'loe.reviewed'
+                      FROM studies
+                      JOIN level_of_evidence USING(study_id)
+                      JOIN assessments USING(assessment_id)
+                      JOIN assessors USING(assessor_id)
+                      WHERE ", 
+                      dbQuoteIdentifier(conn, field), 
+                      " LIKE ?;")
+      results <- dbGetQuery(conn, query, params=list(select))
+    }
+    if(mode == "exact"){
+      query <- paste0("SELECT record_id,
+                      assessment_id,
+                      study_id,
+                      assessor_id,
+                      abbreviation AS 'studies.abbreviation',
+                      authors AS 'studies.authors',
+                      title AS 'studies.title',
+                      year AS 'studies.year',
+                      doi AS 'studies.doi',
+                      name AS 'assessors.name',
+                      email AS 'assessors.email',
+                      date_entered AS 'assessments.date_entered',
+                      source AS 'assessments.source',
+                      study_design AS 'loe.study_design',
+                      res_context AS 'loe.res_context',
+                      res_focus AS 'loe.res_focus',
+                      res_question AS 'loe.res_question',
+                      res_outcome AS 'loe.res_outcome',
+                      loe_pre AS 'loe.loe_pre',
+                      loe_final AS 'loe.loe_final',
+                      points_p AS 'loe.points_p',
+                      points_q AS 'loe.points_q',
+                      q_score AS 'loe.q_score',
+                      downgrading AS 'loe.downgrading',
+                      reviewed AS 'loe.reviewed'
+                      FROM studies
+                      JOIN level_of_evidence USING(study_id)
+                      JOIN assessments USING(assessment_id)
+                      JOIN assessors USING(assessor_id)
+                      WHERE ", 
+                      dbQuoteIdentifier(conn, field), 
+                      " = ?;")
+      results <- dbGetQuery(conn, query, params=list(select))
+    }
+    if(mode == "fuzzy"){
+      if(length(select) > 1){
+        stop("For fuzzy matching, please provide only one query term.")
+      }
+      res <- dbSendQuery(conn, "SELECT record_id,
+                         assessment_id,
+                         study_id,
+                         assessor_id,
+                         abbreviation AS 'studies.abbreviation',
+                         authors AS 'studies.authors',
+                         title AS 'studies.title',
+                         year AS 'studies.year',
+                         doi AS 'studies.doi',
+                         name AS 'assessors.name',
+                         email AS 'assessors.email',
+                         date_entered AS 'assessments.date_entered',
+                         source AS 'assessments.source',
+                         study_design AS 'loe.study_design',
+                         res_context AS 'loe.res_context',
+                         res_focus AS 'loe.res_focus',
+                         res_question AS 'loe.res_question',
+                         res_outcome AS 'loe.res_outcome',
+                         loe_pre AS 'loe.loe_pre',
+                         loe_final AS 'loe.loe_final',
+                         points_p AS 'loe.points_p',
+                         points_q AS 'loe.points_q',
+                         q_score AS 'loe.q_score',
+                         downgrading AS 'loe.downgrading',
+                         reviewed AS 'loe.reviewed'
+                         FROM studies
+                         JOIN level_of_evidence USING(study_id)
+                         JOIN assessments USING(assessment_id)
+                         JOIN assessors USING(assessor_id);")
+      res_part <- dbFetch(res, n=50)
+      if(nrow(res_part) > 0) {
+        res_part_q <- subset(res_part, select=noquote(field))[,1]
+        dist_jw <- stringdist(select, res_part_q, method="jw", p=0.1)
+        res_part <- cbind(distance=round(dist_jw, 2), res_part)
+        results <- subset(res_part, distance <= fuzzy.th)
+        repeat {
+          res_part <- dbFetch(res, n=2)
+          if(nrow(res_part) <= 1) {
+            break
+          }
+          res_part_q <- subset(res_part, select=noquote(field))[,1]
+          dist_jw <- stringdist(select, res_part_q, method="jw", p=0.1)
+          res_part <- cbind(distance=round(dist_jw, 2), res_part)
+          results <- rbind(results, subset(res_part, distance <= fuzzy.th))
+        }
+        results <- results[order(results$distance), ]
+        dbClearResult(res)
+      } else {
+        dbClearResult(res)
+        results <- res_part
+      }
+    }
+  }
+  
+  if(ids.only == TRUE){
+    # Reduce columns of result set to id columns only
+    id_col <- which(grepl("_id", names(results)))
+    if(length(id_col) != 0){
+      results <- results[,id_col]
+    } else {
+      warning("No ID columns found in results. All columns will be included.")
+    }
+  }
+  return(results)
+}
 
 ###################### ##
 # Template Functions ####
@@ -570,193 +681,4 @@ TemplateAssessStudies <- function(N=1, no.cl.questions=43){
 }
 
 
-############################ ##
-# Old Functions            ####
-############################ ##
 
-
-GetAssessors_OLD <- function(select = NULL, field = "name"){
-  # Gets a list of assessors and functions as a wrapper for GetRecords
-  #
-  # Args
-  #   select: Search term for defined field. If NULL the entire assessors table
-  #       is returned. Default is NULL.
-  #   field: Field to be queried; either "name" or "email". Default is "email".
-  #
-  # Returns
-  #   The entire assessors table or only rows matching the search term.
-  if(is.null(select)){
-    assessors <- dbGetQuery(con, "SELECT * FROM assessors;")
-  } else {
-    if(field == "name"){
-      select <- paste("%", as.character(select), "%", sep = "")
-      assessors <- dbGetQuery(con, "SELECT * FROM assessors WHERE name LIKE ?;", 
-                              param=list(select))
-    } else {
-      select <- paste("%", as.character(select), "%", sep = "")
-      assessors <- dbGetQuery(con, "SELECT * FROM assessors WHERE email LIKE ?;", 
-                              param=list(select))
-    }
-  }
-  return(assessors) 
-}
-
-new_studies <- function(studies, silent = FALSE){
-  # studies: either a named list (for one entry) or a data.frame (for several
-  # entries) with mandatory fields "abbreviation ", "authors", "title", and
-  # "year"; and optional field "doi"
-  
-  studies <- data.frame(lapply(studies, as.character), stringsAsFactors = FALSE) # Coerce input
-  n_entries <- nrow(studies) # number of new entries
-  
-  # Add "doi" field if not provided
-  if(!("doi" %in% names(studies))){
-    studies$doi <- character(n_entries)
-  }
-  
-  if(n_entries > 0){
-      # SQL statement for insertion
-      insert_study <- dbSendStatement(con,
-                                         "INSERT INTO studies(abbreviation, authors, title, year, doi)
-                                         VALUES(:abbreviation, :authors, :title, :year, :doi);")
-      dbBind(insert_study, param=studies)
-      dbClearResult(insert_study)
-  }
-  
-  # Get assigned IDs
-  if(silent == FALSE){
-    study_ids <- dbGetQuery(con, "SELECT * FROM studies WHERE abbreviation = :abbreviation", param=list(abbreviation=studies$abbreviation))
-    return(study_ids)
-  }
-}
-
-get_study_ids <- function(query = NULL, mode = NULL){
-  # query: vector with dois, abbreviations or author names of studies for which to get ids
-  # mode: either "doi", "abbreviation", "author", or NULL
-  
-  # Remove empty values in query vector
-  if(!is.null(query)){
-    query <-  as.character(query[!query == ""])
-  }
-  
-  if(is.null(mode)){
-    study_ids <- dbGetQuery(con, "SELECT * FROM studies;")
-  } else {
-    if(mode == "doi"){
-      study_ids <- dbGetQuery(con, "SELECT * FROM studies WHERE doi = ?;", param=list(query))
-    }
-    if(mode == "abbreviation"){
-      study_ids <- dbGetQuery(con, "SELECT * FROM studies WHERE abbreviation = ?;", param=list(query))
-    }
-    if(mode == "author"){
-      query <- paste("%", as.character(query), "%", sep = "")
-      study_ids <- dbGetQuery(con, "SELECT * FROM studies WHERE authors LIKE ?;", param=list(query))
-    }
-  }
-  
-  return(study_ids[,c(1, 2, 5)])
-}
-
-get_study_info <- function(ids = NULL) {
-  # id: matches study_id in studies table for which to retrieve information; not mandatory
-  
-  if(is.null(ids)){
-    studies <- dbGetQuery(con, "SELECT * FROM studies;")
-  } else {
-    studies <- dbGetQuery(con, "SELECT * FROM studies WHERE study_id = ?;", param=list(ids))
-  }
-  return(studies)
-}
-
-
-
-get_assessment_ids <- function(query = NULL, mode = NULL ){
-  # query: vector of assessor ids or dates
-  # mode: either assessor_id, date, before, after
-  
-  if(!is.null(query)){
-    query <-  as.character(query[!query == ""])
-  }
-  
-  if(is.null(mode)){
-    assessment_ids <- dbGetQuery(con, "SELECT * FROM assessments;")
-  } else {
-    if(mode == "assessor_id"){
-      assessment_ids <- dbGetQuery(con, "SELECT * FROM assessments WHERE assessor_id = ?;", param=list(query))
-    }
-    if(mode == "date"){
-      assessment_ids <- dbGetQuery(con, "SELECT * FROM assessments WHERE date_entered = ?;", param=list(query))
-    }
-    if(mode == "before"){
-      assessment_ids <- dbGetQuery(con, "SELECT * FROM assessments WHERE date_entered <= ?;", param=list(query))
-    }
-    if(mode == "after"){
-      assessment_ids <- dbGetQuery(con, "SELECT * FROM assessments WHERE date_entered >= ?;", param=list(query))
-    }
-  }
-  
-  return(assessment_ids)
-}
-
-
-
-
-
-new_studies <- function(studies, silent = FALSE){
-  # studies: either a named list (for one entry) or a data.frame (for several
-  # entries) with mandatory fields "abbreviation ", "authors", "title", and
-  # "year"; and optional field "doi"
-  
-  studies <- data.frame(lapply(studies, as.character), stringsAsFactors = FALSE) # Coerce input
-  n_entries <- nrow(studies) # number of new entries
-  
-  # Add "doi" field if not provided
-  if(!("doi" %in% names(studies))){
-    studies$doi <- character(n_entries)
-  }
-  
-  if(n_entries > 0){
-    # SQL statement for insertion
-    insert_study <- dbSendStatement(con,
-                                    "INSERT INTO studies(abbreviation, authors, title, year, doi)
-                                    VALUES(:abbreviation, :authors, :title, :year, :doi);")
-    dbBind(insert_study, param=studies)
-    dbClearResult(insert_study)
-  }
-  
-  # Get assigned IDs
-  if(silent == FALSE){
-    study_ids <- dbGetQuery(con, "SELECT * FROM studies WHERE abbreviation = :abbreviation", param=list(abbreviation=studies$abbreviation))
-    return(study_ids)
-  }
-}
-
-
-new_assessment <- function(assessor_id, source = NULL, date = NULL){
-  # assessor_id: assessor id as registered in assessors table
-  # source: source published source of evidence assessments; not mandatory
-  # date: date of assessment; if not provided, will be replaced with today's
-  # date; must be entered as YYYY-MM-DD
-  
-  if(is.null(source)){
-    source <- ""
-  }
-  
-  if(is.null(date)){
-    date <- as.character(Sys.Date())
-  }
-  
-  # Enable foreign key constraints
-  dbExecute(con, "PRAGMA foreign_keys = ON;")
-  
-  # SQL statement for insertion
-  insert_assessment <- dbSendStatement(con,
-                                       "INSERT INTO assessments(assessor_id, date_entered, source)
-                                       VALUES(?, ?, ?);")
-  dbBind(insert_assessment, param=list(assessor_id, date, source))  
-  dbClearResult(insert_assessment)
-}
-
-# For Compatability with MySQL: use ? as placeholders and reformat column order of data.frames
-
-# Add/extend possibility to detect duplicates in new_assessor and new_study (fuzzy matchings, dois) [get ids of duplicate records and return]
