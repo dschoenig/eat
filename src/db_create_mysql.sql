@@ -88,7 +88,7 @@ CREATE TABLE assessments(
 
   /* Keys */
   PRIMARY KEY(assessment_id),
-  FOREIGN KEY(assessor_id) REFERENCES assessors(assessor_id)
+  FOREIGN KEY(assessor_id) REFERENCES assessors(assessor_id),
   UNIQUE KEY assessor_date (assessor_id, date_entered)
 );
 
