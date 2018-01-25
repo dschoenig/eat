@@ -310,12 +310,13 @@ AssessStudies <- function(studies, assessment_id, conn=eaDB){
   return(new_records)
   }
 
+
 ################################ ##
 # FUNCTIONS FOR DATA RETRIEVAL ####
 ################################ ##
 
 
-GetRecords <- function(select=NULL, field=NULL, ids.only=FALSE, table, 
+GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.only=FALSE, 
                        mode="similar", fuzzy.th=0.25, conn=eaDB) {
   
   # Check for existance of table
@@ -345,18 +346,31 @@ GetRecords <- function(select=NULL, field=NULL, ids.only=FALSE, table,
                    "'. Entire table will be returned."))
     select  <-  NULL
   }
-  # Return entire table if no query is entered; else perform query
   if(is.null(select) && is.null(field)){
+    # Return entire table if no query is entered; else perform query
     query <- paste0("SELECT * FROM ", 
                     dbQuoteIdentifier(conn, table), ";")
     results <- dbGetQuery(conn, query)
   } else {
-    
     # Perform query depending on query mode
+    # set field identifier
+    if(!is.null(return.fields) && ids.only == TRUE){
+      warning("Returning only IDs. Set 'ids.only = FALSE' (Default) to return all or specific query fields.")
+      return.fields <- NULL
+    }
+    
+    if(!is.null(return.fields)){
+      columns <- paste0(dbQuoteIdentifier(conn, return.fields), collapse=", ")
+    } else {
+      columns <- "*"
+    }
+     
     # Query table
     if(mode=="similar"){
       select <- paste("%", as.character(select), "%", sep = "")
-      query <- paste0("SELECT * FROM ", 
+      query <- paste0("SELECT ",
+                      columns,
+                      " FROM ", 
                       dbQuoteIdentifier(conn, table), 
                       " WHERE ", 
                       dbQuoteIdentifier(conn, field), 
@@ -365,7 +379,9 @@ GetRecords <- function(select=NULL, field=NULL, ids.only=FALSE, table,
     }
     
     if(mode == "exact"){
-      query <- paste0("SELECT * FROM ", 
+      query <- paste0("SELECT ",
+                      columns,
+                      " FROM ", 
                       dbQuoteIdentifier(conn, table), 
                       " WHERE ", 
                       dbQuoteIdentifier(conn, field), 
@@ -401,6 +417,10 @@ GetRecords <- function(select=NULL, field=NULL, ids.only=FALSE, table,
       } else {
         dbClearResult(res)
         results <- res_part
+      }
+      
+      if(!is.null(return.fields)){
+        results <- subset(results, select=c("distance", return.fields))
       }
     }
   }
@@ -679,6 +699,3 @@ TemplateAssessStudies <- function(N=1, no.cl.questions=43){
   
   return(cbind(studies_details, studies_checklist))
 }
-
-
-
