@@ -1,5 +1,6 @@
 # TODO: Ensure functionality with MySQL
 #       Add conn argument to each function (and con <- conn)
+# change mode similar to partial
 
 # R functions to interact with the evidence assessment database
 
@@ -7,12 +8,13 @@ library(DBI)
 library(stringdist)
 library(tidyr)
 
+# check for installed packages (also RMariaDB)
 
 ############################ ##
 # FUNCTIONS FOR DATA ENTRY ####
 ############################ ##
 
-CreateStudies <- function(studies, conn=eaDB){
+CreateStudies <- function(studies, force=FALSE, conn=eaDB){
   
   # Format input data
   input <- studies
@@ -23,6 +25,14 @@ CreateStudies <- function(studies, conn=eaDB){
   studies$title <- as.character(input$title)
   studies$year <- as.integer(input$year)
   studies$doi <- as.character(input$doi)
+  
+  if(force == FALSE){
+    # Raise error if duplicates are present
+    duplicates <- CheckForDuplicateStudies(input)
+    if(nrow(duplicates) != 0){
+      stop(paste0("Duplicate entries found. Use 'CheckForDuplicateStudies(studies)' on the 'studies' data.frame you provided."))
+    }
+  }
   
   studies_new <- studies
   n_entries <- nrow(studies_new) # number of new entries
@@ -45,11 +55,12 @@ CreateStudies <- function(studies, conn=eaDB){
   }
   
   # Get assigned IDs
-  study_ids <- dbGetQuery(conn, "SELECT * FROM studies WHERE abbreviation = ?;", param=list(studies$abbreviation))
+  study_ids <- dbGetQuery(conn, "SELECT * FROM studies WHERE abbreviation = ?;", 
+                          param=list(studies$abbreviation))
   return(study_ids)
 }
 
-CreateAssessors <- function(assessors, conn=eaDB){
+CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
   # Creates new rows in the assessor table
   #
   # Args
@@ -67,21 +78,15 @@ CreateAssessors <- function(assessors, conn=eaDB){
   assessors$name <- as.character(input$name)
   assessors$email <- as.character(input$email)
   
-  
-  # Check whether assessors are already in database and remove duplicates from 
-  # entry dataframe
-  duplicates <- dbGetQuery(conn, "SELECT * FROM assessors WHERE name = ?;", 
-                           param=list(assessors$name))
-  if(nrow(duplicates) != 0){
-    duplicate_assessors <- unique(duplicates$name)
-    assessors_new <- subset(assessors, 
-                            !(assessors$name %in% duplicate_assessors))
-    warning("One or more assessors are already registered.","\n",
-            "Only new ones will be added; duplicate ones will not be modified.")
-  } else {
-    assessors_new <-  assessors 
+  if(force == FALSE){
+    # Raise error if duplicates are present
+    duplicates <- CheckForDuplicateAssessors(input)
+    if(nrow(duplicates) != 0){
+      stop(paste0("Duplicate entries found. Use 'CheckForDuplicateAssessors(assessors)' on the 'assessors' data.frame you provided."))
+    }
   }
   
+  assessors_new <- assessors
   n_entries <- nrow(assessors_new) # number of new entries
   
   if(n_entries > 0){
@@ -317,8 +322,7 @@ AssessStudies <- function(studies, assessment_id, conn=eaDB){
 
 
 GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.only=FALSE, 
-                       mode="similar", fuzzy.th=0.25, conn=eaDB) {
-  
+                       mode="similar", fuzzy.min.sim=0.75, conn=eaDB) {
   # Check for existance of table
   if(!table %in% dbListTables(conn)){
     stop(paste0("There is no table called '", table, "' in the database."))
@@ -393,6 +397,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
       if(length(select) > 1){
         stop("For fuzzy matching, please provide only one query term.")
       }
+      fuzzy.th <- 1 - fuzzy.min.sim
       query <- paste0("SELECT * FROM ", 
                       dbQuoteIdentifier(conn, table))
       res <- dbSendQuery(conn, query)
@@ -417,67 +422,68 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
       } else {
         dbClearResult(res)
         results <- res_part
+        results$distance <- numeric()
       }
       
       if(!is.null(return.fields)){
+      # Select return fields
         results <- subset(results, select=c("distance", return.fields))
       }
+      
+      # Convert distance into similarity
+      names(results)[names(results) == "distance"] <- "similarity"
+      results$similarity <- 1 - results$similarity
     }
   }
   
   if(ids.only == TRUE){
-    # Reduce columns of result set to id columns only
-    id_col <- which(grepl("_id", names(results)))
-    if(length(id_col) != 0){
-      results <- results[,id_col]
-    } else {
-      warning("No ID columns found in results. All columns will be included.")
-    }
+    results <- IDsOnly(results)
   }
   return(results)
 }
 
-GetStudies <- function(select=NULL, field=NULL, ids.only = FALSE,
-                       mode="similar", fuzzy.th=0.25, conn=eaDB){
+GetStudies <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
+                       mode="similar", fuzzy.min.sim=0.75, conn=eaDB){
   
-  results <- GetRecords(select=select, field=field, ids.only = ids.only,
-                        table="studies", mode=mode, 
-                        fuzzy.th=fuzzy.th, conn=conn)
+  results <- GetRecords(select=select, field=field, table="studies", 
+                        return.fields=return.fields, ids.only = ids.only,
+                        mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
   return(results)
 }
 
-GetAssessors <- function(select=NULL, field=NULL, ids.only = FALSE,
-                         mode="similar", fuzzy.th=0.25, conn=eaDB){
+GetAssessors <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
+                         mode="similar", fuzzy.min.sim=0.75, conn=eaDB){
   
-  results <- GetRecords(select=select, field=field, ids.only = ids.only,
-                        table="assessors", mode=mode, fuzzy.th=fuzzy.th, 
+  results <- GetRecords(select=select, field=field, table="assessors", 
+                        return.fields=return.fields, ids.only = ids.only,
+                        mode=mode, fuzzy.min.sim=fuzzy.min.sim, 
                         conn=conn)
   return(results)
   
 }
 
-GetAssessments <- function(select=NULL, field=NULL, ids.only = FALSE,
-                           mode="similar", fuzzy.th=0.25, conn=eaDB){
+GetAssessments <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
+                           mode="similar", fuzzy.min.sim=0.75, conn=eaDB){
   
-  results <- GetRecords(select=select, field=field, ids.only = ids.only, 
-                        table="assessments", mode=mode, fuzzy.th=fuzzy.th, 
-                        conn=conn)
+  results <- GetRecords(select=select, field=field, table="assessments", 
+                        return.fields=return.fields, ids.only = ids.only, 
+                        mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
   
   return(results)
 }
 
-GetLoE <- function(select=NULL, field=NULL, ids.only = FALSE,
-                   mode="similar", fuzzy.th=0.25, conn=eaDB){
+GetLoE <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
+                   mode="similar", fuzzy.min.sim=0.75, conn=eaDB){
   
-  results <- GetRecords(select=select, field=field, ids.only = ids.only, 
-                        table="level_of_evidence", mode=mode, 
-                        fuzzy.th=fuzzy.th, conn=conn)
+  results <- GetRecords(select=select, field=field, table="level_of_evidence", 
+                        return.fields=return.fields, ids.only = ids.only, 
+                        mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
   
   return(results)
 }
 
 GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
-                           mode="similar", fuzzy.th=0.25, conn=eaDB){
+                           mode="similar", fuzzy.min.sim=0.75, conn=eaDB){
   
   # If query term is provided but no field name, warn that entire table will be
   # returned
@@ -594,6 +600,7 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
       if(length(select) > 1){
         stop("For fuzzy matching, please provide only one query term.")
       }
+      fuzzy.th <- 1 - fuzzy.min.sim
       res <- dbSendQuery(conn, "SELECT record_id,
                          assessment_id,
                          study_id,
@@ -645,23 +652,21 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
         dbClearResult(res)
         results <- res_part
       }
+    
+      # Convert distance into similarity
+      names(results)[names(results) == "distance"] <- "similarity"
+      results$similarity <- 1 - results$similarity  
     }
   }
   
   if(ids.only == TRUE){
-    # Reduce columns of result set to id columns only
-    id_col <- which(grepl("_id", names(results)))
-    if(length(id_col) != 0){
-      results <- results[,id_col]
-    } else {
-      warning("No ID columns found in results. All columns will be included.")
-    }
+    results <- IDsOnly(results)
   }
   return(results)
 }
 
 ###################### ##
-# Template Functions ####
+# TEMPLATE FUNCTIONS ####
 ###################### ##
 
 TemplateStudies <- function(N=1){
@@ -685,7 +690,7 @@ TemplateAssessments <- function(N=1){
   return(assessments)
 }
 
-TemplateAssessStudies <- function(N=1, no.cl.questions=43){
+TemplateAssessStudies <- function(N=1, n.cl.questions=43){
   studies_details <- data.frame("study_id" = integer(N), 
                             "study_design" = character(N),
                             "res_context" = character(N),
@@ -693,9 +698,223 @@ TemplateAssessStudies <- function(N=1, no.cl.questions=43){
                             "res_question" = character(N),
                             "res_outcome" = character(N))
   
-  studies_checklist <- matrix(NA, N, no.cl.questions)
+  studies_checklist <- matrix(NA, N, n.cl.questions)
   studies_checklist <- as.data.frame(studies_checklist)
-  colnames(studies_checklist) <- paste0("q", seq(1:no.cl.questions))
+  colnames(studies_checklist) <- paste0("q", seq(1:n.cl.questions))
   
   return(cbind(studies_details, studies_checklist))
 }
+
+##################################### ##
+# FUNCTIONS FOR HANDLING DUPLICATES ####
+##################################### ##
+
+CheckForDuplicates <- function(source=NULL, table, fields, id.field, 
+                               fuzzy.min.sims, 
+                               all.entries=FALSE, ids.only=FALSE, conn=eaDB){
+  
+  # set up data.frame to hold duplicates
+  duplicates <- data.frame(source_row=integer(), id=integer(), duplicate_type=character(), 
+                           similarity=numeric(), field_matched=character(), 
+                           database_entry=character(), source_entry=character())
+  
+  # replace name for ID column
+  names(duplicates)[names(duplicates) %in% "id"] <- id.field
+  
+  # Initilize trackers for matched IDs from database and matches rows from
+  # source data.frame
+  matched_ids <- numeric()
+  matched_rows <- numeric()
+  
+  if(is.null(source)){
+    # If no source provided, compare database table against itself
+    source <- GetRecords(table = table)
+    # Exclude matches against itself
+    source_ids <- as.integer(subset(source, select=id.field)[,1])
+    matched_ids_internal <- source_ids
+    matched_rows_internal <- 1:nrow(source)
+    internal_matching <- TRUE
+  } else {
+    internal_matching <- FALSE
+  }
+  
+  # Exact matching
+  for(i in 1:length(fields)){
+    # Loop over fields to query
+    select <- as.character(subset(source, select = fields[i])[,1])
+    
+    for(j in 1:length(select)){
+      # Loop over individual queries
+      res <- GetRecords(select=select[j], field = fields[i], table=table, mode="exact", 
+                        return.fields = c(id.field, fields[i]))
+      
+      # Combine results into data.frame
+      source_row <- rep(j, nrow(res))
+      id <-  as.numeric(subset(res, select=id.field)[,1])
+      duplicate_type <- as.character(rep("exact", nrow(res)))
+      similarity <- as.numeric(rep(1, nrow(res)))
+      field_matched <- rep(fields[i], nrow(res))
+      database_entry <- subset(res, select=noquote(fields[i]))[,1]
+      source_entry <- rep(select[j], nrow(res))
+      dup <- data.frame(source_row, id, duplicate_type, similarity, field_matched, source_entry, database_entry)
+      names(dup)[names(dup) %in% "id"] <- id.field
+      
+      if(all.entries == FALSE){
+        # remove records with ID that have already been matched
+        dup_ids <- subset(dup, select=id.field)[,1]
+        match_master <- which(matched_rows %in% j & matched_ids %in% dup_ids)
+        rem_rows <- which(dup$source_row %in% matched_rows[match_master] & 
+                            dup_ids %in% matched_ids[match_master])
+        if(length(rem_rows) > 0){
+          dup <- dup[-rem_rows,]
+        }
+      }
+      
+      # add results to master duplicate table
+      duplicates <- rbind(dup, duplicates)
+      
+      # Remove empty matches
+      rem_empty <- which(duplicates$source_entry %in% "" & duplicates$database_entry %in% "")
+      if(length(rem_empty) > 0){
+        duplicates <- duplicates[-rem_empty,]
+      } 
+      
+      # update matched IDs and rows
+      matched_rows <- as.integer(subset(duplicates, select=source_row)[,1])
+      matched_ids <- as.integer(subset(duplicates, select=noquote(id.field))[,1])
+    }
+  }
+  i=1
+  j=1
+  # Fuzzy matching
+  for(i in 1:length(fields)){
+    # Loop over fields to query
+    select <- as.character(subset(source, select = fields[i])[,1])
+    
+    for(j in 1:length(select)){
+      # Loop over individual queries
+      res <- GetRecords(select=select[j], field = fields[i], table=table, mode="fuzzy", 
+                        return.fields = c(id.field, fields[i]), fuzzy.min.sim = fuzzy.min.sims[i])
+      
+      # Combine results into data.frame
+      source_row <- rep(j, nrow(res))
+      id <-  as.numeric(subset(res, select=noquote(id.field))[,1])
+      duplicate_type <- as.character(rep("similar", nrow(res)))
+      similarity <- res$similarity
+      field_matched <- rep(fields[i], nrow(res))
+      database_entry <- subset(res, select=noquote(fields[i]))[,1]
+      source_entry <- rep(select[j], nrow(res))
+      dup <- data.frame(source_row, id, duplicate_type, similarity, field_matched, source_entry, database_entry)
+      names(dup)[names(dup) %in% "id"] <- id.field
+      
+      if(all.entries == FALSE){
+        # remove records with ID that have already been matched
+        dup_ids <- subset(dup, select=id.field)[,1]
+        match_master <- which(matched_rows %in% j & matched_ids %in% dup_ids)
+        rem_rows <- which(dup$source_row %in% matched_rows[match_master] & 
+                            dup_ids %in% matched_ids[match_master])
+        if(length(rem_rows) > 0){
+          dup <- dup[-rem_rows,]
+        }
+      }
+      
+      # add results to master duplicate table
+      duplicates <- rbind(dup, duplicates)
+      
+      # Remove empty matches
+      rem_empty <- which(duplicates$source_entry %in% "" & duplicates$database_entry %in% "")
+      if(length(rem_empty) > 0){
+        duplicates <- duplicates[-rem_empty,]
+      } 
+      
+      # update matched IDs and rows
+      matched_ids <- as.integer(subset(duplicates, select=noquote(id.field))[,1])
+      matched_rows <- as.integer(subset(duplicates, select=source_row)[,1])
+    }
+  }
+  
+  # Format results
+  duplicates_ids <- duplicates[,which(names(duplicates) %in% id.field)]
+  ord <- order(duplicates$source_row, as.character(duplicates$duplicate_type), 
+               -duplicates$similarity, duplicates_ids, duplicates$field_matched)
+  duplicates <- duplicates[ord, ]
+  rownames(duplicates) <- NULL
+  
+  if(internal_matching == TRUE){
+    # Replace source rows with IDs
+    source_rows <- duplicates$source_row
+    query_ids <- subset(source, select = id.field)[source_rows, 1]
+    source_ids <- GetRecords(select=query_ids, field = id.field, table=table, mode="exact", ids.only = T)
+    names(duplicates)[names(duplicates) =="source_row"] <- paste0(id.field, "_1", collapse="")
+    duplicates$study_id_1 <- source_ids
+    # Change column names
+    names(duplicates)[names(duplicates) == id.field] <- paste0(id.field, "_2", collapse="")
+    names(duplicates)[names(duplicates) =="source_entry"] <- "database_entry_1"
+    names(duplicates)[names(duplicates) =="database_entry"] <- "database_entry_2"
+    # Remove matches against self
+    rem_self <- which(duplicates$study_id_1 == duplicates$study_id_2)
+    duplicates <- duplicates[-rem_self,]
+  }
+  
+  if(ids.only == TRUE){
+    duplicates <- IDsOnly(duplicates, id.field = id.field)
+  }
+  
+  return(duplicates)
+}
+
+CheckForDuplicateStudies <- function(studies, 
+                                     fields= c("doi", "title", "authors", "abbreviation"),
+                                     fuzzy.min.sims=c(1, 0.9, 0.9, 1), 
+                                     all.entries=FALSE, ids.only=FALSE, conn=eaDB){
+  CheckForDuplicates(source=studies, table = "studies", fields=fields, 
+                     id.field="study_id", fuzzy.min.sims = fuzzy.min.sims, 
+                     all.entries = all.entries, ids.only = ids.only, conn=conn)
+}
+
+CheckForDuplicateAssessors <- function(assessors, 
+                                       fields= c("name", "email"),
+                                       fuzzy.min.sims=c(0.85, 0.85), 
+                                       all.entries=FALSE, ids.only=FALSE, conn=eaDB){
+  CheckForDuplicates(source=assessors, table = "assessors", fields=fields, 
+                     id.field="assessor_id", fuzzy.min.sims = fuzzy.min.sims, 
+                     all.entries = all.entries, ids.only = ids.only, conn=conn)
+}
+
+# ReplaceIDs(original_id="", duplicate_id="", table, field) as helper function, then CombineDuplicateStudies, CombineDuplicateAssessors; replace corresponding IDs and then delete record; first check whether data can be entered
+
+# Delete(id, id.field, table)
+# trace id back, begin with farthest table (level_of_evidence)
+# add ON DELETE CASCADE and ON UPDATE CASCADE to foreign key constraints of certain tables (e.g. level_of_evidence)
+# https://stackoverflow.com/questions/2914936/mysql-foreign-key-constraints-cascade-delete
+
+
+###################### ##
+# HELPER FUNCTIONS ######
+###################### ##
+
+IDsOnly <- function(results, id.field=NULL){
+  # reduces columns of result set to ID columns only
+  
+  if(is.null(id.field)){
+  # If no ID field provided, get columns from data 
+    id_field_id <- which(grepl("_id", names(results)))
+  }
+  
+  if(!is.null(id.field)){
+  # If ID field is provided, get index
+    id_field_id <- which(names(results) %in% id.field)
+    if(length(id_field_id) == 0){
+    # If ID field could not be found, try to guess from data
+      id_field_id <- which(grepl("_id", names(results)))
+    }
+  }
+  
+  if(length(id_field_id) != 0){
+    results <- results[,id_field_id]
+  } else {
+    warning("No ID fields found in results. All fields will be returned")
+  }
+  return(results)
+}
+

@@ -3,10 +3,13 @@ setwd("./src")
 
 # install.packages("DBI", "RMariaDB")
 
-# source("functions_mysql.R")
+source("functions_mysql.R")
 
 # Establish database connections
 eaDB <- dbConnect(RMariaDB::MariaDB(), host="localhost", user="evidence_admin", password="biometry101", dbname="evidence_assessment")
+
+eaDB <- dbConnect(RMariaDB::MariaDB(), host="localhost", user="evidence_user", dbname="evidence_assessment")
+
 dbDisconnect(eaDB)
 
 # Check initiliazed assessment tables
@@ -32,12 +35,14 @@ examples <- read.csv("../data/example_studies.csv")
 studies <- examples[,1:5]
 
 CreateStudies(studies)
-GetStudies("eco", "title")
+GetStudies("eco", "title", mode = "fuzzy", fuzzy.min.sim = 0.1, ids.only = T)
+GetRecords(select = "millar2010", field="abbreviation", table="studies", return.fields = c("abbreviation"), ids.only = F, mode="fuzzy", fuzzy.min.sim = 0.1)
 
 # 2. Register new assessor
-assessors <- data.frame(name=c("Mupepele et al.", "assessor2"), email=c("anne-christine.mupepele@biom.uni-freiburg.de","ex@mple.com"))
+assessors <- data.frame(name=c("Mupepele et al", "assessor2"), email=c("anne-christine.mupepele@biom.uni-freiburg.de","ex@mple.com"))
 
 CreateAssessors(assessors)
+CheckForDuplicateAssessors(assessors)
 GetAssessors()
 
 # 3. Register new assessment
@@ -56,8 +61,9 @@ studies <- cbind(study_id$study_id, examples)
 
 colnames(examples)
 AssessStudies(studies = studies, assessment_id = 1)
-assess_study(studies = studies, assessment_id = 1, answers = answers)
-GetFullRecords()
+
+GetFullRecords(select="Observtional", field = "loe.study_design", mode="fuzzy", fuzzy.min.sim = 0.1)
+
 GetFullRecords(ids.only = T)
 GetStudies(select=2006:2015, field="year", ids.only = F)
 GetStudies(select=2010:2018, field="year", ids.only = T)
