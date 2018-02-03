@@ -1055,6 +1055,69 @@ UpdateStudies <- function(study.ids, studies.update, conn=eaDB){
   return(updated)
 }
 
+UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
+  
+  # Format input data
+  input <- assessors.update
+  n <- nrow(input)
+  assessor.ids <- as.integer(as.character(assessor.ids))
+  assessors <- TemplateAssessors(n)
+  assessors$name <- as.character(input$name)
+  assessors$email <- as.character(input$email)
+  
+  assessors_update <- assessors
+  n_entries <- nrow(assessors_update) # number of new entries
+  
+  if(n_entries > 0){
+    # SQL statement for insertion
+    update_assessors <- dbSendStatement(conn,
+                                        "UPDATE assessors
+                                        SET name = ?,
+                                        email = ?
+                                        WHERE assessor_id = ?;")
+    dbBind(update_assessors, params=list(assessors_update$name,
+                                         assessors_update$email,
+                                         assessor.ids))
+    dbClearResult(update_assessors)
+  }
+  updated <- dbGetQuery(conn, "SELECT * FROM assessors WHERE assessor_id = ?;",
+                        param=list(assessor.ids))
+  return(updated)
+}
+
+UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
+  
+  # Format input data
+  input <- assessment.update
+  n <- nrow(input)
+  assessment.ids <- as.integer(as.character(assessment.ids))
+  assessments <- TemplateAssessments(n)
+  assessments$assessor_id <- as.character(input$assessor_id)
+  assessments$source <- as.character(input$source)
+  assessments$date_entered <- as.character(input$date_entered)
+  
+  assessments_update <- assessments
+  n_entries <- nrow(assessments_update) # number of new entries
+  
+  if(n_entries > 0){
+    # SQL statement for insertion
+    update_assessments <- dbSendStatement(conn,
+                                          "UPDATE assessments
+                                          SET assessor_id = ?,
+                                          source = ?,
+                                          date_entered = ?
+                                          WHERE assessment_id = ?;")
+    dbBind(update_assessments, params=list(assessments_update$assessor_id,
+                                           assessments_update$source,
+                                           assessments_update$date_entered,
+                                           assessment.ids))
+    dbClearResult(update_assessments)
+  }
+  updated <- dbGetQuery(conn, "SELECT * FROM assessments WHERE assessor_id = ?;",
+                        param=list(assessment.ids))
+  return(updated)
+}
+
 
 ###################### ##
 # HELPER FUNCTIONS ######
