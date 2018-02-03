@@ -89,6 +89,8 @@ CREATE TABLE assessments(
   /* Keys */
   PRIMARY KEY(assessment_id),
   FOREIGN KEY(assessor_id) REFERENCES assessors(assessor_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
 );
 
 
@@ -100,8 +102,12 @@ CREATE TABLE quality(
 
   /* Keys */
   CONSTRAINT quality_pk PRIMARY KEY (assessment_id, study_id, question_id),
-  FOREIGN KEY (assessment_id) REFERENCES assessments(assessment_id),
-  FOREIGN KEY (study_id) REFERENCES studies(study_id),
+  FOREIGN KEY (assessment_id) REFERENCES assessments(assessment_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  FOREIGN KEY (study_id) REFERENCES studies(study_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
   FOREIGN KEY (question_id) REFERENCES checklist(question_id),
 
   /* Checks */
@@ -144,8 +150,12 @@ CREATE TABLE level_of_evidence (
 
   /* Keys */
   PRIMARY KEY(record_id),
-  FOREIGN KEY(assessment_id) REFERENCES assessments(assessment_id),
-  FOREIGN KEY(study_id) REFERENCES studies(study_id),
+  FOREIGN KEY(assessment_id) REFERENCES assessments(assessment_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  FOREIGN KEY(study_id) REFERENCES studies(study_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
   FOREIGN KEY(downgrading) REFERENCES adjustments(adjustment),
   FOREIGN KEY(study_design, loe_pre) REFERENCES study_designs(study_design, loe_pre),
   /* NB: for new records, the studies, assessor, and assements tables
