@@ -88,8 +88,7 @@ CREATE TABLE assessments(
 
   /* Keys */
   PRIMARY KEY(assessment_id),
-  FOREIGN KEY(assessor_id) REFERENCES assessors(assessor_id),
-  UNIQUE KEY assessor_date (assessor_id, date_entered)
+  FOREIGN KEY(assessor_id) REFERENCES assessors(assessor_id)
 );
 
 
@@ -149,6 +148,7 @@ CREATE TABLE level_of_evidence (
   FOREIGN KEY(study_id) REFERENCES studies(study_id),
   FOREIGN KEY(downgrading) REFERENCES adjustments(adjustment),
   FOREIGN KEY(study_design, loe_pre) REFERENCES study_designs(study_design, loe_pre),
+  UNIQUE KEY assessment_study (assessment_id, study_id),
   /* NB: for new records, the studies, assessor, and assements tables
   must be populated first */
 
