@@ -57,7 +57,7 @@ CreateStudies <- function(studies, force=FALSE, conn=eaDB){
     dbClearResult(insert_study)
   }
 
-  # Get assigned IDs
+  # Return newly added studies
   study_ids <- dbGetQuery(conn, "SELECT * FROM studies WHERE abbreviation = ?;",
                           param=list(studies$abbreviation))
   return(study_ids)
@@ -950,6 +950,111 @@ CombineDuplicateAssessors <- function(duplicate.ids, original.ids, conn=eaDB){
  return(combined)
 }
 
+###################### ##
+# DELETE FUNCTIONS ######
+###################### ##
+
+RemoveStudies <- function(study.ids, conn=eaDB){
+  n_rem <- RemoveRecords(ids=study.ids, id.field = "study_id", table="studies")
+  return(n_rem)
+}
+
+RemoveAssessors <- function(assessor.ids, conn=eaDB){
+  n_rem <- RemoveRecords(ids=assessor.ids, id.field = "assessor_id", table="assessors")
+  return(n_rem)
+}
+
+RemoveAssessments <- function(assessment.ids, conn=eaDB){
+  n_rem <- RemoveRecords(ids=assessment.ids, id.field = "assessment_id", table="assessments")
+  return(n_rem)
+}
+
+RemoveEvidenceForStudies <-  function(study.ids, conn=eaDB){
+  rem_loe <- RemoveRecords(ids=study.ids, 
+                           id.field = "study_id", 
+                           table="level_of_evidence")
+  rem_quality <- RemoveRecords(ids=study.ids, 
+                               id.field = "study_id", 
+                               table="quality")
+  return(list(removed_from_level_of_evidence=rem_loe,
+              removed_from_quality=rem_quality))
+}
+
+RemoveEvidenceForAssessments <-  function(assessment.ids, conn=eaDB){
+  rem_loe <- RemoveRecords(ids=assessment.ids, 
+                           id.field = "assessment_id", 
+                           table="level_of_evidence")
+  rem_quality <- RemoveRecords(ids=assessment.ids, 
+                               id.field = "assessment_id", 
+                               table="quality")
+  return(list(removed_from_level_of_evidence=rem_loe,
+              removed_from_quality=rem_quality))
+}
+
+RemoveEvidence <-  function(record.ids, conn=eaDB){
+  
+  to_remove <- dbGetQuery(conn=conn, "SELECT assessment_id, study_id 
+                                        FROM level_of_evidence 
+                                       WHERE record_id=?;", 
+                          params=list(record.ids))
+  
+  rem_loe <- RemoveRecords(ids=record.ids, 
+                           id.field="record_id", 
+                           table="level_of_evidence")
+  
+  q_remove <- paste0("DELETE FROM quality
+                            WHERE assessment_id = ?
+                              AND study_id = ?;")
+  rem_quality <- dbExecute(conn, q_remove, params=list(to_remove$assessment_id, 
+                                                 to_remove$study_id))
+  
+  
+  return(list(removed_from_level_of_evidence=rem_loe,
+              removed_from_quality=rem_quality))
+}
+
+###################### ##
+# UPDATE FUNCTIONS ######
+###################### ##
+
+UpdateStudies <- function(study.ids, studies.update, conn=eaDB){
+  # Format input data
+  input <- studies.update
+  n <- nrow(input)
+  study.ids <- as.integer(as.character(study.ids))
+  studies <- TemplateStudies(n)
+  studies$abbreviation <- as.character(input$abbreviation)
+  studies$authors <- as.character(input$authors)
+  studies$title <- as.character(input$title)
+  studies$year <- as.integer(input$year)
+  studies$doi <- as.character(input$doi)
+  
+  studies_update <- studies
+  n_entries <- nrow(studies_update) # number of new entries
+  
+  if(n_entries > 0){
+    # SQL statement for insertion
+    update_studies <- dbSendStatement(conn,
+                                      "UPDATE studies
+                                          SET abbreviation = ?,
+                                              authors = ?,
+                                              title = ?,
+                                              year = ?,
+                                              doi = ?
+                                        WHERE study_id = ?;")
+    dbBind(update_studies, params=list(studies_update$abbreviation,
+                                       studies_update$authors,
+                                       studies_update$title,
+                                       studies_update$year,
+                                       studies_update$doi,
+                                       study.ids))
+    dbClearResult(update_studies)
+  }
+  updated <- dbGetQuery(conn, "SELECT * FROM studies WHERE study_id = ?;",
+                        param=list(study.ids))
+  return(updated)
+}
+
 
 ###################### ##
 # HELPER FUNCTIONS ######
@@ -1037,10 +1142,10 @@ ReplaceIDs <- function(duplicate.ids, original.ids, id.field, sort.field,
   }
 
 RemoveRecords <- function(ids, id.field, table, conn=eaDB){
-  q_delete <- q_delete <- paste0("DELETE FROM ", dbQuoteIdentifier(conn, table),
-                                 "      WHERE ", dbQuoteIdentifier(conn, id.field), " = ?;")
-  n_del <- dbExecute(conn, q_delete, params=list(ids))
-  return(n_del)
+  q_remove <- paste0("DELETE FROM ", dbQuoteIdentifier(conn, table),
+                           "WHERE ", dbQuoteIdentifier(conn, id.field), " = ?;")
+  n_rem <- dbExecute(conn, q_remove, params=list(ids))
+  return(n_rem)
 }
 
 UpdateLoE <- function(study.ids=NULL, conn=eaDB){
