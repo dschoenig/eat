@@ -1,7 +1,3 @@
-# TODO: Ensure functionality with MySQL
-#       Add conn argument to each function (and con <- conn)
-# change mode similar to partial
-
 # R functions to interact with the evidence assessment database
 
 library(DBI)
@@ -10,8 +6,6 @@ library(tidyr)
 
 # check for installed packages (also RMariaDB)
 all(c("DBI", "RMariaDB", "stringdist", "tidyr") %in% rownames(installed.packages()))
-
-
 
 ############################ ##
 # FUNCTIONS FOR DATA ENTRY ####
@@ -143,9 +137,7 @@ CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
   return(assessment_ids)
 }
 
-AssessStudies <- function(studies, assessment_id, conn=eaDB){
-  # TODO: check whether combination of assessment and study ids is already present in LoE table
-
+AssessStudies <- function(studies, assessment.id, conn=eaDB){
   # Get info on checklist
   n_questions <- as.integer(dbGetQuery(conn, "SELECT COUNT(*) FROM checklist")[1,1])
   c_questions <- paste0("q",seq(1:n_questions))
@@ -165,7 +157,7 @@ AssessStudies <- function(studies, assessment_id, conn=eaDB){
     col <- which(colnames(studies) == q)
     studies[, col] <- answers
   }
-  studies$assessment_id <- as.integer(assessment_id)
+  studies$assessment_id <- as.integer(assessment.id)
 
   # Convert answers to "yes" "no" and "NA", regardless of original NA value
   c_id_questions <- which(colnames(studies) %in% c_questions)
@@ -197,16 +189,10 @@ AssessStudies <- function(studies, assessment_id, conn=eaDB){
 
   # Stop if studies have already been assessed
   if(nrow(duplicates) != 0){
-    if(nrow(duplicates) == 1){
-      sp <- "study with ID '"
-    } else {
-      sp <- "studies with IDs '"
-    }
-    stop(paste0("Assessment with ID '", assessment_id,
-                "' already contains answers to checklist questions for ",
-                sp,
+    stop(paste0("Assessment with ID '", assessment.id,
+                "' already contains answers to checklist questions for studies with the following IDs: ", 
                 paste(duplicates$study_id, collapse = "', '"),
-                "'. Please remove these studies from the input data and try again. Alternatively, remove corresponding answers from the 'quality' table."))
+                "'. Please remove these studies from the input data and try again. Alternatively, remove corresponding records from the 'level_of_evidence' table. You can overwrite existing assessments with 'ReassessStudies()'."))
   }
 
   # Enter checklist answers
@@ -668,6 +654,39 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
   return(results)
 }
 
+GetUnassessedStudies <- function(ids.only=FALSE, conn=eaDB){
+  # Get IDs from studies table and level_of_evidence table
+  study_ids_studies <- dbGetQuery(conn, "SELECT study_id FROM studies;")
+  study_ids_loe <- dbGetQuery(conn, "SELECT DISTINCT study_id 
+                                                FROM level_of_evidence")
+  study_ids_studies <- study_ids_studies[,1]
+  study_ids_loe <- study_ids_loe[,1]
+  
+  # match IDs
+  not_assessed <- study_ids_studies[which(!study_ids_studies %in% 
+                                            study_ids_loe)]
+  if(ids.only == TRUE){
+    return(not_assessed)
+  } else {
+    not_assessed_studies <- GetStudies(select=not_assessed, field="study_id", 
+                                       mode="exact", conn=conn)
+    return(not_assessed_studies)
+  }
+}
+
+GetRecordsToReview <- function(ids.only=FALSE, conn=eaDB){
+  to_review <- dbGetQuery(conn, "SELECT record_id FROM level_of_evidence WHERE reviewed = 'no';")
+  to_review <- to_review[,1]
+  if(ids.only == TRUE){
+    return(to_review)
+  } else {
+    to_review_records <- GetFullRecords(select=to_review, field="record_id", mode="exact", 
+                                        conn=conn)
+    return(to_review_records)
+  }
+}
+
+
 ###################### ##
 # TEMPLATE FUNCTIONS ####
 ###################### ##
@@ -1072,9 +1091,9 @@ UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
     # SQL statement for insertion
     update_assessors <- dbSendStatement(conn,
                                         "UPDATE assessors
-                                        SET name = ?,
-                                        email = ?
-                                        WHERE assessor_id = ?;")
+                                            SET name = ?,
+                                                email = ?
+                                          WHERE assessor_id = ?;")
     dbBind(update_assessors, params=list(assessors_update$name,
                                          assessors_update$email,
                                          assessor.ids))
@@ -1103,10 +1122,10 @@ UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
     # SQL statement for insertion
     update_assessments <- dbSendStatement(conn,
                                           "UPDATE assessments
-                                          SET assessor_id = ?,
-                                          source = ?,
-                                          date_entered = ?
-                                          WHERE assessment_id = ?;")
+                                              SET assessor_id = ?,
+                                                  source = ?,
+                                                  date_entered = ?
+                                            WHERE assessment_id = ?;")
     dbBind(update_assessments, params=list(assessments_update$assessor_id,
                                            assessments_update$source,
                                            assessments_update$date_entered,
@@ -1118,6 +1137,26 @@ UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
   return(updated)
 }
 
+ReassessStudies <- function(studies, assessment.id, conn=eaDB){
+  # Remove existing evidence for studies in given assessment
+  to_remove <- expand.grid(study_id=studies$study_id, assessment_id=assessment.id)
+  ids_rem <- dbGetQuery(conn, "SELECT record_id
+                        FROM level_of_evidence WHERE study_id = ? AND assessment_id = ?;", 
+                        params=list(to_remove$study_id, to_remove$assessment_id))
+  removed <- RemoveEvidence(record.ids=ids_rem$record_id, conn=conn)
+  
+  # Assess studies
+  assessed <- AssessStudies(studies=studies, assessment.id=assessment.id)
+  return(assessed)
+}
+
+MarkAsReviewed <- function(record.ids, conn=eaDB){
+  dbExecute(conn, "UPDATE level_of_evidence
+            SET reviewed = 'yes' 
+            WHERE record_id = ?;", params=list(record.ids))
+  reviewed <- GetLoE(select=record.ids, field="record_id", mode="exact", conn=conn)
+  return(reviewed)
+}
 
 ###################### ##
 # HELPER FUNCTIONS ######
