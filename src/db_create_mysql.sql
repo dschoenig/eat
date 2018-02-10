@@ -21,6 +21,7 @@ CREATE TABLE studies(
 CREATE TABLE assessors(
   assessor_id   INT           NOT NULL AUTO_INCREMENT,
   name          VARCHAR(500)  NOT NULL,  -- name of assessor
+  affiliation   VARCHAR(500)  NOT NULL,  -- affiliated institution
   email         VARCHAR(50)   NOT NULL,  -- email contact of assessor
 
   /* Keys */

@@ -34,16 +34,18 @@ dbGetQuery(eaDB, 'SELECT * FROM level_of_evidence')
 examples <- read.csv("../data/example_studies.csv")
 studies <- examples[,1:5]
 
-CreateStudies(studies)
+CreateStudies(studies, force=T)
 GetStudies("eco", "title", mode = "fuzzy", fuzzy.min.sim = 0.1, ids.only = T)
 GetRecords(select = "millar2010", field="abbreviation", table="studies", return.fields = c("abbreviation"), ids.only = F, mode="fuzzy", fuzzy.min.sim = 0.1)
 
 # 2. Register new assessor
 assessors <- data.frame(name=c("Mupepele et al", "assessor2"), email=c("anne-christine.mupepele@biom.uni-freiburg.de","ex@mple.com"))
 
-CreateAssessors(assessors)
+CreateAssessors(assessors, force = T)
 CheckForDuplicateAssessors(assessors)
+CheckForDuplicateAssessors()
 GetAssessors()
+CheckForDuplicateStudies(studies)
 
 # 3. Register new assessment
 
@@ -51,16 +53,13 @@ assessments <- data.frame(assessor_id=c("1","2"), source=c("Mupepele et al. 2016
 CreateAssessments(assessments, date="2015-11-23")
 GetAssessments()
 
-
 # 4. Assess studies
 # change to fill template step by step
 studies <- TemplateAssessStudies(13)
-study_id <- GetStudies(examples[,1], field="abbreviation", mode="exact")
-studies$study_id <- study_id$study_id
-studies <- cbind(study_id$study_id, examples)
-
-colnames(examples)
-AssessStudies(studies = studies, assessment_id = 1)
+study_id <- GetStudies(examples[,1], field="abbreviation", mode="exact", ids.only = T)
+studies <- cbind(study_id, examples)
+studies$study_id
+AssessStudies(studies = studies, assessment.id = 1)
 
 GetFullRecords(select="Observtional", field = "loe.study_design", mode="fuzzy", fuzzy.min.sim = 0.1)
 
@@ -87,7 +86,7 @@ get_assesor_ids(select="freiburg", field="email")
 examples <- read.csv("../data/example_studies.csv")
 studies <- examples[,1:5]
 
-CreateStudies(studies)
+CreateStudies(studies, force = T)
 GetStudies("eco", "title")
 
 # Query studies
@@ -113,7 +112,9 @@ get_assessment_ids(query="2017-12-08", mode="after")
 studies <- TemplateAssessStudies(13)
 study_id <- GetStudies(examples[,1], field="abbreviation", mode="exact")
 studies$study_id <- study_id$study_id
-studies <- cbind(study_id$study_id, examples)
+
+study_id <- 14:26
+studies <- cbind(study_id, examples)
 
 colnames(examples)
 assess_study(studies = studies, assessment_id = 1, answers = answers)
