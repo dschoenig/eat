@@ -1,18 +1,40 @@
-# R functions to interact with the evidence assessment database
+# These functions are built to interact with a database for evidence assessment,
+# set up according to Mupepele et al. (2016). The functions serve as building
+# blocks for a CRUD interface and cover data entry, retrieval, updating and
+# removal, as well as duplicate handling.
+#
+# The R interface depends on a correctly structured and initialized MySQL or
+# MariaDB database. Please refer to the SQL documentation for the eveidence
+# assessment database to ensure that your database has been set up correctly.
+# Some functions will not work for database users with restricted rights. In
+# particular, all `CombineDuplicates` functons, all `Remove` functions, and
+# `ReassessStudies` require the user to possess `DELETE` rights. The interface
+# functions have been built mainly on top of the `DBI` and `RMariaDB` packages.
+# These packages offer general purpose functions to interact with the evidence
+# assessment database in ways that are not covered by this R interface.
+#
+# For general attribution of the evidence assessment database and the assessment
+# procedure, please use:
+#
+# Mupepele, A.-C., Walsh, J. C., Sutherland, W. J., & Dormann, C. F. (2016). An
+# evidence assessment tool for ecosystem services and conservation studies.
+# Ecological Applications, 26(5), 1295–1301. https://doi.org/10.1890/15-0595
 
+# Check for installed packages
+all(c("DBI", "RMariaDB", "stringdist", "tidyr") %in% rownames(installed.packages()))
+
+# Load packages
 library(DBI)
 library(stringdist)
 library(tidyr)
 
-# check for installed packages (also RMariaDB)
-all(c("DBI", "RMariaDB", "stringdist", "tidyr") %in% rownames(installed.packages()))
 
 ############################ ##
 # FUNCTIONS FOR DATA ENTRY ####
 ############################ ##
 
 CreateStudies <- function(studies, force=FALSE, conn=eaDB){
-
+  
   # Format input data
   input <- studies
   n <- nrow(input)
@@ -22,7 +44,7 @@ CreateStudies <- function(studies, force=FALSE, conn=eaDB){
   studies$title <- as.character(input$title)
   studies$year <- as.integer(input$year)
   studies$doi <- as.character(input$doi)
-
+  
   if(force == FALSE){
     # Raise error if duplicates are present
     duplicates <- CheckForDuplicateStudies(input)
@@ -30,13 +52,13 @@ CreateStudies <- function(studies, force=FALSE, conn=eaDB){
       stop(paste0("Duplicate entries found. Use 'CheckForDuplicateStudies(studies)' on the 'studies' data frame you have provided."))
     }
   }
-
+  
   studies_new <- studies
   n_entries <- nrow(studies_new) # number of new entries
-
+  
   # Get IDs of studies already in database
   old_ids <- dbGetQuery(conn=conn, "SELECT study_id FROM studies;")[,1]
-
+  
   if(n_entries > 0){
     # SQL statement for insertion
     insert_study <- dbSendStatement(conn,
@@ -53,28 +75,28 @@ CreateStudies <- function(studies, force=FALSE, conn=eaDB){
                                     studies_new$doi))
     dbClearResult(insert_study)
   }
-
+  
   # Get IDs of studies in database after insertion
   new_ids <- dbGetQuery(conn=conn, "SELECT study_id FROM studies;")[,1]
   # Which ones have been added?
   added_ids <- new_ids[which(!new_ids %in% old_ids)]
-
+  
   # Return newly added studies
   studies_added <- dbGetQuery(conn, "SELECT * FROM studies
                                              WHERE study_id = ?;",
-                          param=list(added_ids))
+                              param=list(added_ids))
   return(studies_added)
 }
 
 CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
-
+  
   # Format input data
   input <- assessors
   n <- nrow(input)
   assessors <- TemplateAssessors(N=n)
   assessors$name <- as.character(input$name)
   assessors$email <- as.character(input$email)
-
+  
   if(force == FALSE){
     # Raise error if duplicates are present
     duplicates <- CheckForDuplicateAssessors(input)
@@ -82,28 +104,28 @@ CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
       stop(paste0("Duplicate entries found. Use 'CheckForDuplicateAssessors(assessors)' on the 'assessors' data frame you have provided."))
     }
   }
-
+  
   assessors_new <- assessors
   n_entries <- nrow(assessors_new) # number of new entries
-
+  
   # Get IDs of assessors already in database
   old_ids <- dbGetQuery(conn=conn, "SELECT assessor_id FROM assessors;")[,1]
-
+  
   if(n_entries > 0){
-      # SQL statement for insertion
-      insert_assessor <- dbSendStatement(conn,
-                                         "INSERT INTO assessors(name, email)
-                                               VALUES (?, ?);")
-      dbBind(insert_assessor, param=list(assessors_new$name,
-                                         assessors_new$email))
-      dbClearResult(insert_assessor)
+    # SQL statement for insertion
+    insert_assessor <- dbSendStatement(conn,
+                                       "INSERT INTO assessors(name, email)
+                                             VALUES (?, ?);")
+    dbBind(insert_assessor, param=list(assessors_new$name,
+                                       assessors_new$email))
+    dbClearResult(insert_assessor)
   }
-
+  
   # Get IDs of assessors in database after insertion
   new_ids <- dbGetQuery(conn=conn, "SELECT assessor_id FROM assessors;")[,1]
   # Which ones have been added?
   added_ids <- new_ids[which(!new_ids %in% old_ids)]
-
+  
   # Get assigned IDs
   assessor_added <- dbGetQuery(conn, "SELECT * FROM assessors
                                               WHERE assessor_id = ?;",
@@ -112,12 +134,12 @@ CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
 }
 
 CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
-
+  
   # If date is not specified, set today's date
   if(is.null(date)){
     date <- Sys.Date()
   }
-
+  
   # Format input data
   input <- assessments
   n <- nrow(input)
@@ -125,17 +147,17 @@ CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
   assessments$assessor_id <- as.integer(as.character(input$assessor_id))
   assessments$source <- as.character(input$source)
   assessments$date_entered <- date
-
+  
   assessments_new <- assessments
   n_entries <- nrow(assessments_new) # number of new entries
-
+  
   # Get IDs of assessments already in database
   old_ids <- dbGetQuery(conn=conn, "SELECT assessment_id FROM assessments;")[,1]
-
+  
   if(n_entries > 0){
     # SQL statement for insertion
     insert_assessment <- dbSendStatement(conn,
-                                    "INSERT INTO assessments(assessor_id,
+                                         "INSERT INTO assessments(assessor_id,
                                                              source,
                                                              date_entered)
                                           VALUES (?, ?, ?);")
@@ -144,12 +166,12 @@ CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
                                          assessments_new$date_entered))
     dbClearResult(insert_assessment)
   }
-
+  
   # Get IDs of assessments in database after insertion
   new_ids <- dbGetQuery(conn=conn, "SELECT assessment_id FROM assessments;")[,1]
   # Which ones have been added?
   added_ids <- new_ids[which(!new_ids %in% old_ids)]
-
+  
   # Get assigned IDs
   assessments_added <- dbGetQuery(conn, "SELECT * FROM assessments
                                                  WHERE assessment_id = ?;",
@@ -161,7 +183,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
   # Get info on checklist
   n_questions <- as.integer(dbGetQuery(conn, "SELECT COUNT(*) FROM checklist")[1,1])
   c_questions <- paste0("q",seq(1:n_questions))
-
+  
   # Format input data
   input <- studies
   n <- nrow(input)
@@ -178,7 +200,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
     studies[, col] <- answers
   }
   studies$assessment_id <- as.integer(assessment.id)
-
+  
   # Convert answers to "yes" "no" and "NA", regardless of original NA value
   c_id_questions <- which(colnames(studies) %in% c_questions)
   answers <- as.data.frame(matrix(NA , n, n_questions))
@@ -189,24 +211,24 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
   answers[ids_no] <- "no"
   answers[is.na(answers)] <- "NA"
   studies[,c_id_questions] <- answers
-
+  
   # Prepare checklist answers for database insertion
   quality <- cbind(assessment_id=studies$assessment_id, study_id=studies$study_id,
-        studies[,c_id_questions])
+                   studies[,c_id_questions])
   quality <- gather(quality, key="question_id", value="answer", -assessment_id, -study_id)
   quality$question_id <- gsub("q", "", quality$question_id)
   ord <- order(as.integer(quality$assessment_id),
                as.integer(quality$study_id),
                as.integer(quality$question_id))
   quality <- quality[ord,]
-
+  
   # Check if studies have alredy been assessed
   check <- dbGetQuery(conn, "SELECT assessment_id, study_id
                                FROM quality
                               WHERE assessment_id = ? AND study_id = ?;",
                       params=list(quality$assessment_id, quality$study_id))
   duplicates <- unique(check)
-
+  
   # Stop if studies have already been assessed
   if(nrow(duplicates) != 0){
     stop(paste0("Assessment with ID '", assessment.id,
@@ -214,7 +236,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                 paste(duplicates$study_id, collapse = "', '"),
                 "'. Please remove these studies from the input data and try again. Alternatively, remove corresponding records from the 'level_of_evidence' table. You can overwrite existing assessments with 'ReassessStudies()'."))
   }
-
+  
   # Enter checklist answers
   enter_answers <- dbSendStatement(conn,
                                    "INSERT INTO quality(assessment_id,
@@ -227,22 +249,22 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                                       quality$question_id,
                                       quality$answer))
   dbClearResult(enter_answers)
-
+  
   # look up preliminary LoE based on study design
   loe_pre <- dbGetQuery(conn, "SELECT loe_pre
                                  FROM study_designs
                                 WHERE study_design = ?;",
                         param=list(studies$study_design))
-
+  
   # Check whether a preliminary LoE could be assigned to each study
   if(nrow(loe_pre) != nrow(studies)){
     designs <- dbGetQuery(conn, "SELECT DISTINCT study_design FROM study_designs;")
     stop(paste0("One or more study designs could not been assigned a preliminary LoE. Please assure that the study design provided for each study is one of the following: '", paste(designs$study_design, collapse = "', '","'"), sep = ""))
   }
-
+  
   # Add assigned preliminary LoE
   studies$loe_pre <- loe_pre$loe_pre
-
+  
   # Calculate quality scores; calculations are performed at the database level
   qscores <- dbGetQuery(conn, "SELECT study_id,
                                       n_yes + n_no AS 'points_p',
@@ -256,11 +278,11 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                                         WHERE assessment_id = ? AND study_id = ?
                                      GROUP BY study_id, assessment_id
                                       ) AS quality_ag;",
-           params=list(studies$assessment_id, studies$study_id))
+                        params=list(studies$assessment_id, studies$study_id))
   studies$points_p <- qscores$points_p
   studies$points_q <- qscores$points_q
   studies$q_score <- qscores$q_score[match(studies$study_id, qscores$study_id)] * 100
-
+  
   # Downgrade LoE according to quality score
   studies$q_score[is.na(studies$q_score)] <- -9  # placeholder for calculation
   adjustments <- dbGetQuery(conn, "SELECT adjustment_id,
@@ -275,7 +297,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                           param=list(adjustments$adjustment_id, studies$loe_pre))
   studies$loe_final <- loe_final$loe_final
   studies$q_score[studies$q_score == -9] <- NA  # Reset to NA
-
+  
   # Enter complete information into level_of_evidence table; NA entries in R
   # data frames will be entered as NULL in database
   assess_study <- dbSendStatement(conn,"INSERT INTO level_of_evidence(
@@ -308,7 +330,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                                      studies$q_score,
                                      studies$downgrading))
   dbClearResult(assess_study)
-
+  
   # Get part of table for return
   new_records <- dbGetQuery(conn, "SELECT record_id,
                                           assessment_id,
@@ -322,7 +344,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                                     WHERE assessment_id = ? AND study_id = ?;",
                             params=list(studies$assessment_id, studies$study_id))
   return(new_records)
-  }
+}
 
 
 ################################ ##
@@ -359,19 +381,19 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
                    "'. Entire table will be returned."))
     select  <-  NULL
   }
-
+  
   # set field identifier
   if(!is.null(return.fields) && ids.only == TRUE){
     warning("Returning only IDs. Set 'ids.only = FALSE' (Default) to return all or specific query fields.")
     return.fields <- NULL
   }
-
+  
   if(!is.null(return.fields)){
     columns <- paste0(dbQuoteIdentifier(conn, return.fields), collapse=", ")
   } else {
     columns <- "*"
   }
-
+  
   if(is.null(select) && is.null(field)){
     # Return entire table if no query is entered; else perform query
     query <- paste0("SELECT ",
@@ -392,7 +414,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
                       " LIKE ?;")
       results <- dbGetQuery(conn, query, params=list(select))
     }
-
+    
     if(mode == "exact"){
       query <- paste0("SELECT ",
                       columns,
@@ -403,7 +425,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
                       " = ?;")
       results <- dbGetQuery(conn, query, params=list(select))
     }
-
+    
     if(mode == "fuzzy"){
       if(length(select) > 1){
         stop("For fuzzy matching, please provide only one query term.")
@@ -435,18 +457,18 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
         results <- res_part
         results$distance <- numeric()
       }
-
+      
       if(!is.null(return.fields)){
-      # Select return fields
+        # Select return fields
         results <- subset(results, select=c("distance", return.fields))
       }
-
+      
       # Convert distance into similarity
       names(results)[names(results) == "distance"] <- "similarity"
       results$similarity <- 1 - results$similarity
     }
   }
-
+  
   if(ids.only == TRUE){
     results <- IDsOnly(results)
   }
@@ -455,7 +477,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
 
 GetStudies <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
                        mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-
+  
   results <- GetRecords(select=select, field=field, table="studies",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
@@ -464,38 +486,38 @@ GetStudies <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FAL
 
 GetAssessors <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
                          mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-
+  
   results <- GetRecords(select=select, field=field, table="assessors",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim,
                         conn=conn)
   return(results)
-
+  
 }
 
 GetAssessments <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
                            mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-
+  
   results <- GetRecords(select=select, field=field, table="assessments",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
-
+  
   return(results)
 }
 
 GetLoE <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
                    mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-
+  
   results <- GetRecords(select=select, field=field, table="level_of_evidence",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
-
+  
   return(results)
 }
 
 GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
                            mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-
+  
   # If query term is provided but no field name, warn that entire table will be
   # returned
   if(!is.null(select) && is.null(field)){
@@ -503,7 +525,7 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
                    "'. Entire table will be returned."))
     select  <-  NULL
   }
-
+  
   # Return entire table if no query is entered; else perform query
   if(is.null(select) && is.null(field)){
     results <-  dbGetQuery(conn, "SELECT record_id,
@@ -663,13 +685,13 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
         dbClearResult(res)
         results <- res_part
       }
-
+      
       # Convert distance into similarity
       names(results)[names(results) == "distance"] <- "similarity"
       results$similarity <- 1 - results$similarity
     }
   }
-
+  
   if(ids.only == TRUE){
     results <- IDsOnly(results)
   }
@@ -683,7 +705,7 @@ GetUnassessedStudies <- function(ids.only=FALSE, conn=eaDB){
                                                 FROM level_of_evidence")
   study_ids_studies <- study_ids_studies[,1]
   study_ids_loe <- study_ids_loe[,1]
-
+  
   # match IDs
   not_assessed <- study_ids_studies[which(!study_ids_studies %in%
                                             study_ids_loe)]
@@ -736,16 +758,16 @@ TemplateAssessments <- function(N=1){
 
 TemplateAssessStudies <- function(N=1, n.cl.questions=43){
   studies_details <- data.frame("study_id" = integer(N),
-                            "study_design" = character(N),
-                            "res_context" = character(N),
-                            "res_focus" = character(N),
-                            "res_question" = character(N),
-                            "res_outcome" = character(N))
-
+                                "study_design" = character(N),
+                                "res_context" = character(N),
+                                "res_focus" = character(N),
+                                "res_question" = character(N),
+                                "res_outcome" = character(N))
+  
   studies_checklist <- matrix(NA, N, n.cl.questions)
   studies_checklist <- as.data.frame(studies_checklist)
   colnames(studies_checklist) <- paste0("q", seq(1:n.cl.questions))
-
+  
   return(cbind(studies_details, studies_checklist))
 }
 
@@ -756,20 +778,20 @@ TemplateAssessStudies <- function(N=1, n.cl.questions=43){
 CheckForDuplicates <- function(source=NULL, table, fields, id.field,
                                fuzzy.min.sims,
                                all.entries=FALSE, ids.only=FALSE, conn=eaDB){
-
+  
   # set up data.frame to hold duplicates
   duplicates <- data.frame(source_row=integer(), id=integer(), duplicate_type=character(),
                            similarity=numeric(), field_matched=character(),
                            database_entry=character(), source_entry=character())
-
+  
   # replace name for ID column
   names(duplicates)[names(duplicates) %in% "id"] <- id.field
-
+  
   # Initilize trackers for matched IDs from database and matches rows from
   # source data.frame
   matched_ids <- numeric()
   matched_rows <- numeric()
-
+  
   if(is.null(source)){
     # If no source provided, compare database table against itself
     source <- GetRecords(table = table)
@@ -781,17 +803,17 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
   } else {
     internal_matching <- FALSE
   }
-
+  
   # Exact matching
   for(i in 1:length(fields)){
     # Loop over fields to query
     select <- as.character(subset(source, select = fields[i])[,1])
-
+    
     for(j in 1:length(select)){
       # Loop over individual queries
       res <- GetRecords(select=select[j], field = fields[i], table=table, mode="exact",
                         return.fields = c(id.field, fields[i]))
-
+      
       # Combine results into data.frame
       source_row <- rep(j, nrow(res))
       id <-  as.numeric(subset(res, select=id.field)[,1])
@@ -802,7 +824,7 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
       source_entry <- rep(select[j], nrow(res))
       dup <- data.frame(source_row, id, duplicate_type, similarity, field_matched, source_entry, database_entry)
       names(dup)[names(dup) %in% "id"] <- id.field
-
+      
       if(all.entries == FALSE){
         # remove records with ID that have already been matched
         dup_ids <- subset(dup, select=id.field)[,1]
@@ -813,32 +835,32 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
           dup <- dup[-rem_rows,]
         }
       }
-
+      
       # add results to master duplicate table
       duplicates <- rbind(dup, duplicates)
-
+      
       # Remove empty matches
       rem_empty <- which(duplicates$source_entry %in% "" & duplicates$database_entry %in% "")
       if(length(rem_empty) > 0){
         duplicates <- duplicates[-rem_empty,]
       }
-
+      
       # update matched IDs and rows
       matched_rows <- as.integer(subset(duplicates, select=source_row)[,1])
       matched_ids <- as.integer(subset(duplicates, select=noquote(id.field))[,1])
     }
   }
-
+  
   # Fuzzy matching
   for(i in 1:length(fields)){
     # Loop over fields to query
     select <- as.character(subset(source, select = fields[i])[,1])
-
+    
     for(j in 1:length(select)){
       # Loop over individual queries
       res <- GetRecords(select=select[j], field = fields[i], table=table, mode="fuzzy",
                         return.fields = c(id.field, fields[i]), fuzzy.min.sim = fuzzy.min.sims[i])
-
+      
       # Combine results into data.frame
       source_row <- rep(j, nrow(res))
       id <-  as.numeric(subset(res, select=noquote(id.field))[,1])
@@ -849,7 +871,7 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
       source_entry <- rep(select[j], nrow(res))
       dup <- data.frame(source_row, id, duplicate_type, similarity, field_matched, source_entry, database_entry)
       names(dup)[names(dup) %in% "id"] <- id.field
-
+      
       if(all.entries == FALSE){
         # remove records with ID that have already been matched
         dup_ids <- subset(dup, select=id.field)[,1]
@@ -860,29 +882,29 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
           dup <- dup[-rem_rows,]
         }
       }
-
+      
       # add results to master duplicate table
       duplicates <- rbind(dup, duplicates)
-
+      
       # Remove empty matches
       rem_empty <- which(duplicates$source_entry %in% "" & duplicates$database_entry %in% "")
       if(length(rem_empty) > 0){
         duplicates <- duplicates[-rem_empty,]
       }
-
+      
       # update matched IDs and rows
       matched_ids <- as.integer(subset(duplicates, select=noquote(id.field))[,1])
       matched_rows <- as.integer(subset(duplicates, select=source_row)[,1])
     }
   }
-
+  
   # Format results
   duplicates_ids <- duplicates[,which(names(duplicates) %in% id.field)]
   ord <- order(duplicates$source_row, as.character(duplicates$duplicate_type),
                -duplicates$similarity, duplicates_ids, duplicates$field_matched)
   duplicates <- duplicates[ord, ]
   rownames(duplicates) <- NULL
-
+  
   if(internal_matching == TRUE){
     # Replace source rows with IDs
     source_rows <- duplicates$source_row
@@ -898,15 +920,15 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
     rem_self <- which(subset(duplicates,
                              select=paste0(id.field, "_1", collapse=""))[,1]
                       ==
-                      subset(duplicates,
-                             select=paste0(id.field, "_2", collapse=""))[,1])
+                        subset(duplicates,
+                               select=paste0(id.field, "_2", collapse=""))[,1])
     duplicates <- duplicates[-rem_self,]
   }
-
+  
   if(ids.only == TRUE){
     duplicates <- IDsOnly(duplicates, id.field = id.field)
   }
-
+  
   return(duplicates)
 }
 
@@ -930,41 +952,41 @@ CheckForDuplicateAssessors <- function(assessors=NULL,
 
 CombineDuplicateStudies <- function(duplicate.ids, original.ids, update.loe=T,
                                     conn=eaDB){
-
+  
   modified <- ReplaceIDs(duplicate.ids = duplicate.ids, original.ids = original.ids,
-                            id.field="study_id", sort.field="assessment_id",
-                            tables=c("level_of_evidence", "quality"), conn=conn)
-
+                         id.field="study_id", sort.field="assessment_id",
+                         tables=c("level_of_evidence", "quality"), conn=conn)
+  
   studies_removed <- RemoveRecords(ids=duplicate.ids, id.field="study_id",
                                    table="studies", conn=conn)
-
+  
   if(update.loe == TRUE){
     UpdateLoE(study.ids=original.ids, conn=conn)
   }
-
+  
   combined <- list(removed_in_studies = studies_removed,
                    modified_in_level_of_evidence=modified$modified$level_of_evidence,
                    removed_in_level_of_evidence=modified$removed$level_of_evidence,
                    modified_in_quality=modified$modified$quality,
                    removed_in_quality=modified$removed$quality)
-
+  
   return(combined)
 }
 
 CombineDuplicateAssessments <- function(duplicate.ids, original.ids, update.loe=T,
                                         conn=eaDB){
-
+  
   modified <- ReplaceIDs(duplicate.ids = duplicate.ids,
-                        original.ids = original.ids,
-                        id.field="assessment_id", sort.field="study_id",
-                        tables=c("level_of_evidence", "quality"),
-                        conn=conn)
-
+                         original.ids = original.ids,
+                         id.field="assessment_id", sort.field="study_id",
+                         tables=c("level_of_evidence", "quality"),
+                         conn=conn)
+  
   # Remove from assessments
   assessments_removed <- RemoveRecords(ids=duplicate.ids, id.field="assessment_id",
-                                   table="assessments", conn=conn)
-
-
+                                       table="assessments", conn=conn)
+  
+  
   if(update.loe == TRUE){
     # Get IDs of studies to update
     update_loe_ids <- dbGetQuery(conn=conn,
@@ -974,8 +996,8 @@ CombineDuplicateAssessments <- function(duplicate.ids, original.ids, update.loe=
     update_loe_ids <- unique(update_loe_ids[,1])
     UpdateLoE(study.ids=update_loe_ids, conn=conn)
   }
-
-
+  
+  
   combined <- list(removed_in_assessments = assessments_removed,
                    modified_in_level_of_evidence=modified$modified$level_of_evidence,
                    removed_in_level_of_evidence=modified$removed$level_of_evidence,
@@ -988,11 +1010,11 @@ CombineDuplicateAssessors <- function(duplicate.ids, original.ids, conn=eaDB){
   modified <- dbExecute(conn=conn, "UPDATE assessments
             SET assessor_id = ?
             WHERE assessor_id = ?;",
-            params=list(original.ids, duplicate.ids))
- removed <- RemoveRecords(ids=duplicate.ids, id.field="assessor_id", table="assessors", conn=conn)
- combined <- list(removed_from_assessors = removed,
-                  modified_in_assessments=modified)
- return(combined)
+                        params=list(original.ids, duplicate.ids))
+  removed <- RemoveRecords(ids=duplicate.ids, id.field="assessor_id", table="assessors", conn=conn)
+  combined <- list(removed_from_assessors = removed,
+                   modified_in_assessments=modified)
+  return(combined)
 }
 
 ###################### ##
@@ -1037,23 +1059,23 @@ RemoveEvidenceForAssessments <-  function(assessment.ids, conn=eaDB){
 }
 
 RemoveEvidence <-  function(record.ids, conn=eaDB){
-
+  
   to_remove <- dbGetQuery(conn=conn, "SELECT assessment_id, study_id
                                         FROM level_of_evidence
                                        WHERE record_id=?;",
                           params=list(record.ids))
-
+  
   rem_loe <- RemoveRecords(ids=record.ids,
                            id.field="record_id",
                            table="level_of_evidence")
-
+  
   q_remove <- paste0("DELETE FROM quality
                             WHERE assessment_id = ?
                               AND study_id = ?;")
   rem_quality <- dbExecute(conn, q_remove, params=list(to_remove$assessment_id,
-                                                 to_remove$study_id))
-
-
+                                                       to_remove$study_id))
+  
+  
   return(list(removed_from_level_of_evidence=rem_loe,
               removed_from_quality=rem_quality))
 }
@@ -1073,10 +1095,10 @@ UpdateStudies <- function(study.ids, studies.update, conn=eaDB){
   studies$title <- as.character(input$title)
   studies$year <- as.integer(input$year)
   studies$doi <- as.character(input$doi)
-
+  
   studies_update <- studies
   n_entries <- nrow(studies_update) # number of new entries
-
+  
   if(n_entries > 0){
     # SQL statement for insertion
     update_studies <- dbSendStatement(conn,
@@ -1101,7 +1123,7 @@ UpdateStudies <- function(study.ids, studies.update, conn=eaDB){
 }
 
 UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
-
+  
   # Format input data
   input <- assessors.update
   n <- nrow(input)
@@ -1109,10 +1131,10 @@ UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
   assessors <- TemplateAssessors(n)
   assessors$name <- as.character(input$name)
   assessors$email <- as.character(input$email)
-
+  
   assessors_update <- assessors
   n_entries <- nrow(assessors_update) # number of new entries
-
+  
   if(n_entries > 0){
     # SQL statement for insertion
     update_assessors <- dbSendStatement(conn,
@@ -1131,7 +1153,7 @@ UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
 }
 
 UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
-
+  
   # Format input data
   input <- assessment.update
   n <- nrow(input)
@@ -1140,10 +1162,10 @@ UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
   assessments$assessor_id <- as.character(input$assessor_id)
   assessments$source <- as.character(input$source)
   assessments$date_entered <- as.character(input$date_entered)
-
+  
   assessments_update <- assessments
   n_entries <- nrow(assessments_update) # number of new entries
-
+  
   if(n_entries > 0){
     # SQL statement for insertion
     update_assessments <- dbSendStatement(conn,
@@ -1170,7 +1192,7 @@ ReassessStudies <- function(studies, assessment.id, conn=eaDB){
                         FROM level_of_evidence WHERE study_id = ? AND assessment_id = ?;",
                         params=list(to_remove$study_id, to_remove$assessment_id))
   removed <- RemoveEvidence(record.ids=ids_rem$record_id, conn=conn)
-
+  
   # Assess studies
   assessed <- AssessStudies(studies=studies, assessment.id=assessment.id)
   return(assessed)
@@ -1190,21 +1212,21 @@ MarkAsReviewed <- function(record.ids, conn=eaDB){
 
 IDsOnly <- function(results, id.field=NULL){
   # reduces columns of result set to ID columns only
-
+  
   if(is.null(id.field)){
-  # If no ID field provided, get columns from data
+    # If no ID field provided, get columns from data
     id_field_id <- which(grepl("_id", names(results)))
   }
-
+  
   if(!is.null(id.field)){
-  # If ID field is provided, get index
+    # If ID field is provided, get index
     id_field_id <- which(names(results) %in% id.field)
     if(length(id_field_id) == 0){
-    # If ID field could not be found, try to guess from data
+      # If ID field could not be found, try to guess from data
       id_field_id <- which(grepl("_id", names(results)))
     }
   }
-
+  
   if(length(id_field_id) != 0){
     results <- results[,id_field_id]
   } else {
@@ -1215,25 +1237,25 @@ IDsOnly <- function(results, id.field=NULL){
 
 ReplaceIDs <- function(duplicate.ids, original.ids, id.field, sort.field,
                        tables, conn=eaDB){
-
+  
   if(length(duplicate.ids) != length(original.ids)){
     stop("Numbers of duplicate IDs and original IDs don't match.")
   }
-
+  
   n_ids <- length(duplicate.ids)
-
+  
   # Prepare lists to store number changed and deleted records
   n_removed <- vector("list", length(tables))
   names(n_removed) <- tables
   n_removed[1:length(tables)] <- as.integer(0)
   n_modified <- n_removed
-
+  
   for(i in 1:n_ids){
     duplicate.id <- duplicate.ids[i]
     original.id <- original.ids[i]
     for(j in 1:length(tables)){
       table <- tables[j]
-
+      
       q_sort <- paste0("SELECT ", dbQuoteIdentifier(conn, sort.field),
                        "  FROM ", dbQuoteIdentifier(conn, table),
                        " WHERE ", dbQuoteIdentifier(conn, id.field), " = ?;")
@@ -1243,21 +1265,21 @@ ReplaceIDs <- function(duplicate.ids, original.ids, id.field, sort.field,
       q_update <- paste0("UPDATE ",  dbQuoteIdentifier(conn, table),
                          "   SET ", dbQuoteIdentifier(conn, id.field), " = ?
                            WHERE ", dbQuoteIdentifier(conn, id.field), " = ?;")
-
+      
       # Get assessment_ids for duplicate and original
       sort_ids_dup <- dbGetQuery(conn, q_sort, params=list(duplicate.id))
       sort_ids_org <- dbGetQuery(conn, q_sort, params=list(original.id))
       sort_ids_dup <- unique(sort_ids_dup[,1])
       sort_ids_org <- unique(sort_ids_org[,1])
-
+      
       # Finding assignments for duplicate that already contain the original
       sort_ids_dup_del <- sort_ids_org[which(sort_ids_org %in% sort_ids_dup)]
-
+      
       # Delete duplicate study from assignments that already contain original
       records_delete <- list(sort_ids_dup_del,
                              rep(duplicate.id, length(sort_ids_dup_del)))
       n_del_new <- dbExecute(conn, q_delete, params=records_delete)
-
+      
       # Replace duplicate binding with original
       records_replace <- list(as.character(original.id), as.character(duplicate.id))
       n_repl_new <- dbExecute(conn, q_update, params=records_replace)
@@ -1267,11 +1289,11 @@ ReplaceIDs <- function(duplicate.ids, original.ids, id.field, sort.field,
     }
   }
   return(list(modified=n_modified, removed=n_removed))
-  }
+}
 
 RemoveRecords <- function(ids, id.field, table, conn=eaDB){
   q_remove <- paste0("DELETE FROM ", dbQuoteIdentifier(conn, table),
-                           "WHERE ", dbQuoteIdentifier(conn, id.field), " = ?;")
+                     "WHERE ", dbQuoteIdentifier(conn, id.field), " = ?;")
   n_rem <- dbExecute(conn, q_remove, params=list(ids))
   return(n_rem)
 }
@@ -1280,29 +1302,29 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
   if(is.null(study.ids)){
     study.ids <- GetStudies(ids.only = T)
   }
-
+  
   # Get info on IDs
   studies <- dbGetQuery(conn=conn,
                         "SELECT study_id, assessment_id, study_design
                         FROM level_of_evidence
                         WHERE study_id = ?;",
                         params=list(study.ids))
-
+  
   # Get preliminary LoE
   loe_pre <- dbGetQuery(conn, "SELECT loe_pre
                         FROM study_designs
                         WHERE study_design = ?;",
                         param=list(studies$study_design))
-
+  
   # Check whether a preliminary LoE could be assigned to each study
   if(nrow(loe_pre) != nrow(studies)){
     designs <- dbGetQuery(conn, "SELECT DISTINCT study_design FROM study_designs;")
     stop(paste0("One or more study designs could not been assigned a preliminary LoE. Please assure that the study design provided for each study is one of the following: '", paste(designs$study_design, collapse = "', '","'"), sep = ""))
   }
-
+  
   # Add assigned preliminary LoE
   studies$loe_pre <- loe_pre$loe_pre
-
+  
   # Calculate quality scores based on existing information in quality table;
   # calculations are performed at the database level
   qscores <- dbGetQuery(conn, "SELECT study_id,
@@ -1317,11 +1339,11 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
                         WHERE assessment_id = ? AND study_id = ?
                         GROUP BY study_id, assessment_id
                         ) AS quality_ag;",
-           params=list(studies$assessment_id, studies$study_id))
+                        params=list(studies$assessment_id, studies$study_id))
   studies$points_p <- qscores$points_p
   studies$points_q <- qscores$points_q
   studies$q_score <- qscores$q_score[match(studies$study_id, qscores$study_id)] * 100
-
+  
   # Downgrade LoE according to quality score
   studies$q_score[is.na(studies$q_score)] <- -9  # placeholder for calculation
   adjustments <- dbGetQuery(conn, "SELECT adjustment_id,
@@ -1336,7 +1358,7 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
                           param=list(adjustments$adjustment_id, studies$loe_pre))
   studies$loe_final <- loe_final$loe_final
   studies$q_score[studies$q_score == -9] <- NA  # Reset to NA
-
+  
   # Update values in LoE
   q_update <- paste0("UPDATE level_of_evidence
                      SET loe_final = ?,
@@ -1355,11 +1377,11 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
                          studies$downgrading,
                          studies$assessment_id,
                          studies$study_id)
-
+  
   loe_update <- dbSendStatement(conn,q_update)
   dbBind(loe_update, params=records_update)
   dbClearResult(loe_update)
-
+  
   updated_records <- dbGetQuery(conn, "SELECT assessment_id,
                                 study_id,
                                 loe_final,
