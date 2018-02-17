@@ -28,13 +28,23 @@ library(DBI)
 library(stringdist)
 library(tidyr)
 
-
-############################ ##
-# FUNCTIONS FOR DATA ENTRY ####
-############################ ##
+######################################################################### #
+# FUNCTIONS FOR DATA ENTRY ################################################
+######################################################################### #
 
 CreateStudies <- function(studies, force=FALSE, conn=eaDB){
-  
+  # Creates new entries in the `studies` table.
+  #
+  # Args:
+  #   studies: A dataframe in the format provded by `TemplateStudies()`
+  #   force: If FALSE prevents entry of potential duplicates. If TRUE, forces
+  #     data entry even if duplicates have been detected. Default is FALSE.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame containing new entries in the `studies` table.
+
   # Format input data
   input <- studies
   n <- nrow(input)
@@ -42,9 +52,9 @@ CreateStudies <- function(studies, force=FALSE, conn=eaDB){
   studies$abbreviation <- as.character(input$abbreviation)
   studies$authors <- as.character(input$authors)
   studies$title <- as.character(input$title)
-  studies$year <- as.integer(input$year)
+  studies$year <- as.integer(as.character(input$year))
   studies$doi <- as.character(input$doi)
-  
+
   if(force == FALSE){
     # Raise error if duplicates are present
     duplicates <- CheckForDuplicateStudies(input)
@@ -52,13 +62,13 @@ CreateStudies <- function(studies, force=FALSE, conn=eaDB){
       stop(paste0("Duplicate entries found. Use 'CheckForDuplicateStudies(studies)' on the 'studies' data frame you have provided."))
     }
   }
-  
+
   studies_new <- studies
   n_entries <- nrow(studies_new) # number of new entries
-  
+
   # Get IDs of studies already in database
   old_ids <- dbGetQuery(conn=conn, "SELECT study_id FROM studies;")[,1]
-  
+
   if(n_entries > 0){
     # SQL statement for insertion
     insert_study <- dbSendStatement(conn,
@@ -75,12 +85,12 @@ CreateStudies <- function(studies, force=FALSE, conn=eaDB){
                                     studies_new$doi))
     dbClearResult(insert_study)
   }
-  
+
   # Get IDs of studies in database after insertion
   new_ids <- dbGetQuery(conn=conn, "SELECT study_id FROM studies;")[,1]
   # Which ones have been added?
   added_ids <- new_ids[which(!new_ids %in% old_ids)]
-  
+
   # Return newly added studies
   studies_added <- dbGetQuery(conn, "SELECT * FROM studies
                                              WHERE study_id = ?;",
@@ -89,14 +99,25 @@ CreateStudies <- function(studies, force=FALSE, conn=eaDB){
 }
 
 CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
-  
+  # Creates new entries in the `assessors` table.
+  #
+  # Args:
+  #   assessors: A dataframe in the format provded by `TemplateAssessors()`
+  #   force: If FALSE prevents entry of potential duplicates. If TRUE, forces
+  #     data entry even if duplicates have been detected. Default is FALSE.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame containing new entries in the `assessors` table.
+
   # Format input data
   input <- assessors
   n <- nrow(input)
   assessors <- TemplateAssessors(N=n)
   assessors$name <- as.character(input$name)
   assessors$email <- as.character(input$email)
-  
+
   if(force == FALSE){
     # Raise error if duplicates are present
     duplicates <- CheckForDuplicateAssessors(input)
@@ -104,13 +125,13 @@ CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
       stop(paste0("Duplicate entries found. Use 'CheckForDuplicateAssessors(assessors)' on the 'assessors' data frame you have provided."))
     }
   }
-  
+
   assessors_new <- assessors
   n_entries <- nrow(assessors_new) # number of new entries
-  
+
   # Get IDs of assessors already in database
   old_ids <- dbGetQuery(conn=conn, "SELECT assessor_id FROM assessors;")[,1]
-  
+
   if(n_entries > 0){
     # SQL statement for insertion
     insert_assessor <- dbSendStatement(conn,
@@ -120,12 +141,12 @@ CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
                                        assessors_new$email))
     dbClearResult(insert_assessor)
   }
-  
+
   # Get IDs of assessors in database after insertion
   new_ids <- dbGetQuery(conn=conn, "SELECT assessor_id FROM assessors;")[,1]
   # Which ones have been added?
   added_ids <- new_ids[which(!new_ids %in% old_ids)]
-  
+
   # Get assigned IDs
   assessor_added <- dbGetQuery(conn, "SELECT * FROM assessors
                                               WHERE assessor_id = ?;",
@@ -134,12 +155,23 @@ CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
 }
 
 CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
-  
+  # Creates new entries in the `assessments` table.
+  #
+  # Args:
+  #   assessments: A dataframe in the format provded by `TemplateAssessments()`
+  #   force: If FALSE prevents entry of potential duplicates. If TRUE, forces
+  #     data entry even if duplicates have been detected. Default is FALSE.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame containing new entries in the `assessments` table.
+
   # If date is not specified, set today's date
   if(is.null(date)){
     date <- Sys.Date()
   }
-  
+
   # Format input data
   input <- assessments
   n <- nrow(input)
@@ -147,13 +179,13 @@ CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
   assessments$assessor_id <- as.integer(as.character(input$assessor_id))
   assessments$source <- as.character(input$source)
   assessments$date_entered <- date
-  
+
   assessments_new <- assessments
   n_entries <- nrow(assessments_new) # number of new entries
-  
+
   # Get IDs of assessments already in database
   old_ids <- dbGetQuery(conn=conn, "SELECT assessment_id FROM assessments;")[,1]
-  
+
   if(n_entries > 0){
     # SQL statement for insertion
     insert_assessment <- dbSendStatement(conn,
@@ -166,12 +198,12 @@ CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
                                          assessments_new$date_entered))
     dbClearResult(insert_assessment)
   }
-  
+
   # Get IDs of assessments in database after insertion
   new_ids <- dbGetQuery(conn=conn, "SELECT assessment_id FROM assessments;")[,1]
   # Which ones have been added?
   added_ids <- new_ids[which(!new_ids %in% old_ids)]
-  
+
   # Get assigned IDs
   assessments_added <- dbGetQuery(conn, "SELECT * FROM assessments
                                                  WHERE assessment_id = ?;",
@@ -180,10 +212,23 @@ CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
 }
 
 AssessStudies <- function(studies, assessment.id, conn=eaDB){
+  # Assesses the level of evidence for the studies provided and creates new
+  # entries in the `level_of_evidence` table.
+  #
+  # Args:
+  #   studies: A data frame in the format provded by `TemplateAssessStudies()`
+  #   assessment.id: A valid entry in the field `assessment_id` of the
+  #     `assessments` table.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame containing new entries in the `level_of_evidence` table.
+
   # Get info on checklist
-  n_questions <- as.integer(dbGetQuery(conn, "SELECT COUNT(*) FROM checklist")[1,1])
+  n_questions <- as.integer(dbGetQuery(conn, "SELECT COUNT(question_id) FROM checklist")[1,1])
   c_questions <- paste0("q",seq(1:n_questions))
-  
+
   # Format input data
   input <- studies
   n <- nrow(input)
@@ -200,7 +245,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
     studies[, col] <- answers
   }
   studies$assessment_id <- as.integer(assessment.id)
-  
+
   # Convert answers to "yes" "no" and "NA", regardless of original NA value
   c_id_questions <- which(colnames(studies) %in% c_questions)
   answers <- as.data.frame(matrix(NA , n, n_questions))
@@ -211,7 +256,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
   answers[ids_no] <- "no"
   answers[is.na(answers)] <- "NA"
   studies[,c_id_questions] <- answers
-  
+
   # Prepare checklist answers for database insertion
   quality <- cbind(assessment_id=studies$assessment_id, study_id=studies$study_id,
                    studies[,c_id_questions])
@@ -221,14 +266,14 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                as.integer(quality$study_id),
                as.integer(quality$question_id))
   quality <- quality[ord,]
-  
+
   # Check if studies have alredy been assessed
   check <- dbGetQuery(conn, "SELECT assessment_id, study_id
                                FROM quality
                               WHERE assessment_id = ? AND study_id = ?;",
                       params=list(quality$assessment_id, quality$study_id))
   duplicates <- unique(check)
-  
+
   # Stop if studies have already been assessed
   if(nrow(duplicates) != 0){
     stop(paste0("Assessment with ID '", assessment.id,
@@ -236,7 +281,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                 paste(duplicates$study_id, collapse = "', '"),
                 "'. Please remove these studies from the input data and try again. Alternatively, remove corresponding records from the 'level_of_evidence' table. You can overwrite existing assessments with 'ReassessStudies()'."))
   }
-  
+
   # Enter checklist answers
   enter_answers <- dbSendStatement(conn,
                                    "INSERT INTO quality(assessment_id,
@@ -249,22 +294,22 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                                       quality$question_id,
                                       quality$answer))
   dbClearResult(enter_answers)
-  
+
   # look up preliminary LoE based on study design
   loe_pre <- dbGetQuery(conn, "SELECT loe_pre
                                  FROM study_designs
                                 WHERE study_design = ?;",
                         param=list(studies$study_design))
-  
+
   # Check whether a preliminary LoE could be assigned to each study
   if(nrow(loe_pre) != nrow(studies)){
     designs <- dbGetQuery(conn, "SELECT DISTINCT study_design FROM study_designs;")
     stop(paste0("One or more study designs could not been assigned a preliminary LoE. Please assure that the study design provided for each study is one of the following: '", paste(designs$study_design, collapse = "', '","'"), sep = ""))
   }
-  
+
   # Add assigned preliminary LoE
   studies$loe_pre <- loe_pre$loe_pre
-  
+
   # Calculate quality scores; calculations are performed at the database level
   qscores <- dbGetQuery(conn, "SELECT study_id,
                                       n_yes + n_no AS 'points_p',
@@ -282,7 +327,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
   studies$points_p <- qscores$points_p
   studies$points_q <- qscores$points_q
   studies$q_score <- qscores$q_score[match(studies$study_id, qscores$study_id)] * 100
-  
+
   # Downgrade LoE according to quality score
   studies$q_score[is.na(studies$q_score)] <- -9  # placeholder for calculation
   adjustments <- dbGetQuery(conn, "SELECT adjustment_id,
@@ -297,7 +342,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                           param=list(adjustments$adjustment_id, studies$loe_pre))
   studies$loe_final <- loe_final$loe_final
   studies$q_score[studies$q_score == -9] <- NA  # Reset to NA
-  
+
   # Enter complete information into level_of_evidence table; NA entries in R
   # data frames will be entered as NULL in database
   assess_study <- dbSendStatement(conn,"INSERT INTO level_of_evidence(
@@ -330,7 +375,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
                                      studies$q_score,
                                      studies$downgrading))
   dbClearResult(assess_study)
-  
+
   # Get part of table for return
   new_records <- dbGetQuery(conn, "SELECT record_id,
                                           assessment_id,
@@ -346,14 +391,38 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
   return(new_records)
 }
 
+######################################################################### #
+# FUNCTIONS FOR DATA RETRIEVAL ############################################
+######################################################################### #
 
-################################ ##
-# FUNCTIONS FOR DATA RETRIEVAL ####
-################################ ##
+GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
+                       ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
+                       conn=eaDB) {
+  # Retrieves records from tables in the evidence assessment database.
+  #
+  # Args:
+  #   select: Query term for the field to be queried. A character vector of
+  #     several query terms can be used for modes `exact` and `partial`. If
+  #     NULL, the entire table will be returned. Default is NULL.
+  #   field: Field to be queried in table. If NULL, the entire table will be
+  #     returned. Default is NULL.
+  #   table: Table to be queried.
+  #   return.fields: Fields to be included in the returned data frame. If NULL,
+  #     all fields will be returned. Default is NULL.
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     fields to be returned will depend on `return.fields`. Default is FALSE.
+  #   mode: Offers three modes for matching the query term; "exact" will only
+  #     return exact matches to the query term; "partial" will also include
+  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     similarity set by `fuzzy.min.sim`. Default is "exact".
+  #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
+  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of matching records in the specified table.
 
-
-GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.only=FALSE,
-                       mode="exact", fuzzy.min.sim=0.75, conn=eaDB) {
   # Check for existance of table
   if(!table %in% dbListTables(conn)){
     stop(paste0("There is no table called '", table, "' in the database."))
@@ -381,19 +450,19 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
                    "'. Entire table will be returned."))
     select  <-  NULL
   }
-  
+
   # set field identifier
   if(!is.null(return.fields) && ids.only == TRUE){
     warning("Returning only IDs. Set 'ids.only = FALSE' (Default) to return all or specific query fields.")
     return.fields <- NULL
   }
-  
+
   if(!is.null(return.fields)){
     columns <- paste0(dbQuoteIdentifier(conn, return.fields), collapse=", ")
   } else {
     columns <- "*"
   }
-  
+
   if(is.null(select) && is.null(field)){
     # Return entire table if no query is entered; else perform query
     query <- paste0("SELECT ",
@@ -414,7 +483,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
                       " LIKE ?;")
       results <- dbGetQuery(conn, query, params=list(select))
     }
-    
+
     if(mode == "exact"){
       query <- paste0("SELECT ",
                       columns,
@@ -425,7 +494,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
                       " = ?;")
       results <- dbGetQuery(conn, query, params=list(select))
     }
-    
+
     if(mode == "fuzzy"){
       if(length(select) > 1){
         stop("For fuzzy matching, please provide only one query term.")
@@ -457,67 +526,187 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL, ids.o
         results <- res_part
         results$distance <- numeric()
       }
-      
+
       if(!is.null(return.fields)){
         # Select return fields
         results <- subset(results, select=c("distance", return.fields))
       }
-      
+
       # Convert distance into similarity
       names(results)[names(results) == "distance"] <- "similarity"
       results$similarity <- 1 - results$similarity
     }
   }
-  
+
   if(ids.only == TRUE){
     results <- IDsOnly(results)
   }
   return(results)
 }
 
-GetStudies <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
-                       mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-  
+GetStudies <- function(select=NULL, field=NULL, return.fields=NULL,
+                       ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
+                       conn=eaDB){
+  # Retrieves records from the `studies` table in the evidence assessment
+  #   database.
+  #
+  # Args:
+  #   select: Query term for the field to be queried. A character vector of
+  #     several query terms can be used for modes `exact` and `partial`. If
+  #     NULL, the entire table will be returned. Default is NULL.
+  #   field: Field to be queried in table. If NULL, the entire table will be
+  #     returned. Default is NULL.
+  #   return.fields: Fields to be included in the returned data frame. If NULL,
+  #     all fields will be returned. Default is NULL.
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     fields to be returned will depend on `return.fields`. Default is FALSE.
+  #   mode: Offers three modes for matching the query term; "exact" will only
+  #     return exact matches to the query term; "partial" will also include
+  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     similarity set by `fuzzy.min.sim`. Default is "exact".
+  #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
+  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of matching records in the `studies` table.
+
   results <- GetRecords(select=select, field=field, table="studies",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
   return(results)
 }
 
-GetAssessors <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
-                         mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-  
+GetAssessors <- function(select=NULL, field=NULL, return.fields=NULL,
+                         ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
+                         conn=eaDB){
+  # Retrieves records from the `assessors` table in the evidence assessment
+  #   database.
+  #
+  # Args:
+  #   select: Query term for the field to be queried. A character vector of
+  #     several query terms can be used for modes `exact` and `partial`. If
+  #     NULL, the entire table will be returned. Default is NULL.
+  #   field: Field to be queried in table. If NULL, the entire table will be
+  #     returned. Default is NULL.
+  #   return.fields: Fields to be included in the returned data frame. If NULL,
+  #     all fields will be returned. Default is NULL.
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     fields to be returned will depend on `return.fields`. Default is FALSE.
+  #   mode: Offers three modes for matching the query term; "exact" will only
+  #     return exact matches to the query term; "partial" will also include
+  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     similarity set by `fuzzy.min.sim`. Default is "exact".
+  #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
+  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of matching records in the `assessors` table.
   results <- GetRecords(select=select, field=field, table="assessors",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim,
                         conn=conn)
   return(results)
-  
 }
 
-GetAssessments <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
-                           mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-  
+GetAssessments <- function(select=NULL, field=NULL, return.fields=NULL,
+                           ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
+                           conn=eaDB){
+  # Retrieves records from the `assessments` table in the evidence assessment
+  #   database.
+  #
+  # Args:
+  #   select: Query term for the field to be queried. A character vector of
+  #     several query terms can be used for modes `exact` and `partial`. If
+  #     NULL, the entire table will be returned. Default is NULL.
+  #   field: Field to be queried in table. If NULL, the entire table will be
+  #     returned. Default is NULL.
+  #   return.fields: Fields to be included in the returned data frame. If NULL,
+  #     all fields will be returned. Default is NULL.
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     fields to be returned will depend on `return.fields`. Default is FALSE.
+  #   mode: Offers three modes for matching the query term; "exact" will only
+  #     return exact matches to the query term; "partial" will also include
+  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     similarity set by `fuzzy.min.sim`. Default is "exact".
+  #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
+  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of matching records in the `assessments` table.
+
   results <- GetRecords(select=select, field=field, table="assessments",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
-  
+
   return(results)
 }
 
 GetLoE <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
                    mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-  
+  # Retrieves records from the `level_of_evidence` table in the evidence
+  #   assessment database.
+  #
+  # Args:
+  #   select: Query term for the field to be queried. A character vector of
+  #     several query terms can be used for modes `exact` and `partial`. If
+  #     NULL, the entire table will be returned. Default is NULL.
+  #   field: Field to be queried in table. If NULL, the entire table will be
+  #     returned. Default is NULL.
+  #   return.fields: Fields to be included in the returned data frame. If NULL,
+  #     all fields will be returned. Default is NULL.
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     fields to be returned will depend on `return.fields`. Default is FALSE.
+  #   mode: Offers three modes for matching the query term; "exact" will only
+  #     return exact matches to the query term; "partial" will also include
+  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     similarity set by `fuzzy.min.sim`. Default is "exact".
+  #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
+  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of matching records in the `level_of_evidence` table.
+
   results <- GetRecords(select=select, field=field, table="level_of_evidence",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
-  
+
   return(results)
 }
 
 GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
                            mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
-  
+  # Retrieves full records from the database, joining entries of the `studies`,
+  #   `level_of_evidence`, `assessments` and `assessors` tables.
+  #
+  # Args:
+  #   select: Query term for the field to be queried. A character vector of
+  #     several query terms can be used for modes `exact` and `partial`. If
+  #     NULL, the entire table will be returned. Default is NULL.
+  #   field: Field to be queried. Any field of the tables `studies`,
+  #     `level_of_evidence`, `assessments` and `assessors` is permitted. If
+  #     NULL, the entire table will be returned. Default is NULL.
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     fields to be returned will depend on `return.fields`. Default is FALSE.
+  #   mode: Offers three modes for matching the query term; "exact" will only
+  #     return exact matches to the query term; "partial" will also include
+  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     similarity set by `fuzzy.min.sim`. Default is "exact".
+  #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
+  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of matching records in the database.
+
   # If query term is provided but no field name, warn that entire table will be
   # returned
   if(!is.null(select) && is.null(field)){
@@ -525,7 +714,7 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
                    "'. Entire table will be returned."))
     select  <-  NULL
   }
-  
+
   # Return entire table if no query is entered; else perform query
   if(is.null(select) && is.null(field)){
     results <-  dbGetQuery(conn, "SELECT record_id,
@@ -685,13 +874,13 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
         dbClearResult(res)
         results <- res_part
       }
-      
+
       # Convert distance into similarity
       names(results)[names(results) == "distance"] <- "similarity"
       results$similarity <- 1 - results$similarity
     }
   }
-  
+
   if(ids.only == TRUE){
     results <- IDsOnly(results)
   }
@@ -699,13 +888,27 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
 }
 
 GetUnassessedStudies <- function(ids.only=FALSE, conn=eaDB){
+# Retrieves entries for studies in the `studies` table that have not yet been
+# assessed.
+#
+# Args:
+#   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+#     all fields will be returned. Default is FALSE.
+#   conn: A DBIConnection object as returned by dbConnect(); referring to a
+#     MySQL or MariaDB conncection. Default is eaDB.
+#
+# Returns:
+#  A data frame of containing entries of studies for which no assessment
+#  information exists in the database.
+
+
   # Get IDs from studies table and level_of_evidence table
   study_ids_studies <- dbGetQuery(conn, "SELECT study_id FROM studies;")
   study_ids_loe <- dbGetQuery(conn, "SELECT DISTINCT study_id
                                                 FROM level_of_evidence")
   study_ids_studies <- study_ids_studies[,1]
   study_ids_loe <- study_ids_loe[,1]
-  
+
   # match IDs
   not_assessed <- study_ids_studies[which(!study_ids_studies %in%
                                             study_ids_loe)]
@@ -719,23 +922,41 @@ GetUnassessedStudies <- function(ids.only=FALSE, conn=eaDB){
 }
 
 GetRecordsToReview <- function(ids.only=FALSE, conn=eaDB){
+  # Retrieves full records that are not marked as reviewed.
+  #
+  # Args:
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     all fields will be returned. Default is FALSE.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #  A data frame of containing full records not marked as reviewed.
+
   to_review <- dbGetQuery(conn, "SELECT record_id FROM level_of_evidence WHERE reviewed = 'no';")
   to_review <- to_review[,1]
   if(ids.only == TRUE){
     return(to_review)
   } else {
-    to_review_records <- GetFullRecords(select=to_review, field="record_id", mode="exact",
-                                        conn=conn)
+    to_review_records <- GetFullRecords(select=to_review, field="record_id",
+                                        mode="exact", conn=conn)
     return(to_review_records)
   }
 }
 
-
-###################### ##
-# TEMPLATE FUNCTIONS ####
-###################### ##
+######################################################################### #
+# TEMPLATE FUNCTIONS ######################################################
+######################################################################### #
 
 TemplateStudies <- function(N=1){
+  # Creates a template data frame to be used with `CreateStudies()`
+  #
+  # Args:
+  #   N: Number of rows in the template.
+  #
+  # Returns:
+  #   A data frame with N rows and colummns as needed for use with
+  #   `CreateStudies()`
   studies <- data.frame("abbreviation" = character(N),
                         "authors" = character(N),
                         "title" = character(N),
@@ -745,53 +966,116 @@ TemplateStudies <- function(N=1){
 }
 
 TemplateAssessors <- function(N=1){
+  # Creates a template data frame to be used with `CreateAssessors()`
+  #
+  # Args:
+  #   N: Number of rows in the template.
+  #
+  # Returns:
+  #   A data frame with N rows and colummns as needed for use with
+  #   `CreateAssessors()`
   assessors <- data.frame("name" = character(N),
                           "email" = character(N))
   return(assessors)
 }
 
 TemplateAssessments <- function(N=1){
+  # Creates a template data frame to be used with `CreateAssessments()`
+  #
+  # Args:
+  #   N: Number of rows in the template.
+  #
+  # Returns:
+  #   A data frame with N rows and colummns as needed for use with
+  #   `CreateAssessments()`
   assessments <- data.frame("assessor_id" = integer(N),
                             "source" = character(N))
   return(assessments)
 }
 
-TemplateAssessStudies <- function(N=1, n.cl.questions=43){
+TemplateAssessStudies <- function(N=1){
+  # Creates a template data frame to be used with `AssessStudies()`
+  #
+  # Args:
+  #   N: Number of rows in the template.
+  #
+  # Returns:
+  #   A data frame with N rows and colummns as needed for use with
+  #   `AssessStudies()()`
+
+  # Get number of questions in checklist
+  n_questions <- as.integer(dbGetQuery(conn, "SELECT COUNT(question_id)
+                                                FROM checklist")[1,1])
+
   studies_details <- data.frame("study_id" = integer(N),
                                 "study_design" = character(N),
                                 "res_context" = character(N),
                                 "res_focus" = character(N),
                                 "res_question" = character(N),
                                 "res_outcome" = character(N))
-  
-  studies_checklist <- matrix(NA, N, n.cl.questions)
+  # Prepare columns for answers to checklist questions
+  studies_checklist <- matrix(NA, N, n_questions)
   studies_checklist <- as.data.frame(studies_checklist)
-  colnames(studies_checklist) <- paste0("q", seq(1:n.cl.questions))
-  
+  colnames(studies_checklist) <- paste0("q", seq(1:n_questions))
+
   return(cbind(studies_details, studies_checklist))
 }
 
-##################################### ##
-# FUNCTIONS FOR HANDLING DUPLICATES ####
-##################################### ##
+######################################################################### #
+# FUNCTIONS FOR HANDLING DUPLICATES #######################################
+######################################################################### #
 
 CheckForDuplicates <- function(source=NULL, table, fields, id.field,
                                fuzzy.min.sims,
                                all.entries=FALSE, ids.only=FALSE, conn=eaDB){
-  
+  # Checks whether entries in the provided source data frame are already
+  # present in database. If no source is provided, checks for duplicates
+  # present within the database. This is a general purpose function. Specific
+  # functions are provided for detecting duplicates in the `studies` and
+  # `assessor` tables.
+  #
+  # Args:
+  #   source: A data frame corresponding to the format of the table to be
+  #     checked for duplicates. Use the `Template` functions for examples.
+  #     If NULL, entries of the database table will be matched against
+  #     themselves to detect duplicates within the database. Default is NULL.
+  #   table: Table to be checked for duplicates.
+  #   fields: Fields in table to be used for duplicate detection.
+  #   id.field: Name of field that holds the unique IDs in the table.
+  #   fuzzy.min.sims: A numeric vector containing the minimum similarities for
+  #     duplicate matching based on similarity. The vector must contain one
+  #     entry for each field provided in `fields`, in the same order. Values
+  #     can range from 0 (everything matches) to 1 (only exact matches).
+  #   all.entries: If FALSE, will not include duplicates based on partial or
+  #     similarity matching, if a corresponding exact duplicate has already
+  #     been detected. In the same way, duplicates based on similarity matching
+  #     will not be included if a corresponding partial duplicate has already
+  #     been detected. If TRUE, no duplicate matches will be excluded. Default
+  #     is FALSE.
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     all fields will be returned. Default is FALSE.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame containing duplicates, including the type of duplicates, the
+  #   corresponding ID in the database and corresponding row in the provided
+  #   data frame. If no source is provided and an internal matching performed,
+  #   the returned data frame includes two IDs columns.
+
   # set up data.frame to hold duplicates
   duplicates <- data.frame(source_row=integer(), id=integer(), duplicate_type=character(),
                            similarity=numeric(), field_matched=character(),
                            database_entry=character(), source_entry=character())
-  
+
   # replace name for ID column
   names(duplicates)[names(duplicates) %in% "id"] <- id.field
-  
+
   # Initilize trackers for matched IDs from database and matches rows from
   # source data.frame
   matched_ids <- numeric()
   matched_rows <- numeric()
-  
+
   if(is.null(source)){
     # If no source provided, compare database table against itself
     source <- GetRecords(table = table)
@@ -803,17 +1087,17 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
   } else {
     internal_matching <- FALSE
   }
-  
+
   # Exact matching
   for(i in 1:length(fields)){
     # Loop over fields to query
     select <- as.character(subset(source, select = fields[i])[,1])
-    
+
     for(j in 1:length(select)){
       # Loop over individual queries
       res <- GetRecords(select=select[j], field = fields[i], table=table, mode="exact",
                         return.fields = c(id.field, fields[i]))
-      
+
       # Combine results into data.frame
       source_row <- rep(j, nrow(res))
       id <-  as.numeric(subset(res, select=id.field)[,1])
@@ -824,7 +1108,7 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
       source_entry <- rep(select[j], nrow(res))
       dup <- data.frame(source_row, id, duplicate_type, similarity, field_matched, source_entry, database_entry)
       names(dup)[names(dup) %in% "id"] <- id.field
-      
+
       if(all.entries == FALSE){
         # remove records with ID that have already been matched
         dup_ids <- subset(dup, select=id.field)[,1]
@@ -835,32 +1119,32 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
           dup <- dup[-rem_rows,]
         }
       }
-      
+
       # add results to master duplicate table
       duplicates <- rbind(dup, duplicates)
-      
+
       # Remove empty matches
       rem_empty <- which(duplicates$source_entry %in% "" & duplicates$database_entry %in% "")
       if(length(rem_empty) > 0){
         duplicates <- duplicates[-rem_empty,]
       }
-      
+
       # update matched IDs and rows
       matched_rows <- as.integer(subset(duplicates, select=source_row)[,1])
       matched_ids <- as.integer(subset(duplicates, select=noquote(id.field))[,1])
     }
   }
-  
+
   # Fuzzy matching
   for(i in 1:length(fields)){
     # Loop over fields to query
     select <- as.character(subset(source, select = fields[i])[,1])
-    
+
     for(j in 1:length(select)){
       # Loop over individual queries
       res <- GetRecords(select=select[j], field = fields[i], table=table, mode="fuzzy",
                         return.fields = c(id.field, fields[i]), fuzzy.min.sim = fuzzy.min.sims[i])
-      
+
       # Combine results into data.frame
       source_row <- rep(j, nrow(res))
       id <-  as.numeric(subset(res, select=noquote(id.field))[,1])
@@ -871,7 +1155,7 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
       source_entry <- rep(select[j], nrow(res))
       dup <- data.frame(source_row, id, duplicate_type, similarity, field_matched, source_entry, database_entry)
       names(dup)[names(dup) %in% "id"] <- id.field
-      
+
       if(all.entries == FALSE){
         # remove records with ID that have already been matched
         dup_ids <- subset(dup, select=id.field)[,1]
@@ -882,29 +1166,29 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
           dup <- dup[-rem_rows,]
         }
       }
-      
+
       # add results to master duplicate table
       duplicates <- rbind(dup, duplicates)
-      
+
       # Remove empty matches
       rem_empty <- which(duplicates$source_entry %in% "" & duplicates$database_entry %in% "")
       if(length(rem_empty) > 0){
         duplicates <- duplicates[-rem_empty,]
       }
-      
+
       # update matched IDs and rows
       matched_ids <- as.integer(subset(duplicates, select=noquote(id.field))[,1])
       matched_rows <- as.integer(subset(duplicates, select=source_row)[,1])
     }
   }
-  
+
   # Format results
   duplicates_ids <- duplicates[,which(names(duplicates) %in% id.field)]
   ord <- order(duplicates$source_row, as.character(duplicates$duplicate_type),
                -duplicates$similarity, duplicates_ids, duplicates$field_matched)
   duplicates <- duplicates[ord, ]
   rownames(duplicates) <- NULL
-  
+
   if(internal_matching == TRUE){
     # Replace source rows with IDs
     source_rows <- duplicates$source_row
@@ -924,18 +1208,52 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
                                select=paste0(id.field, "_2", collapse=""))[,1])
     duplicates <- duplicates[-rem_self,]
   }
-  
+
   if(ids.only == TRUE){
     duplicates <- IDsOnly(duplicates, id.field = id.field)
   }
-  
+
   return(duplicates)
 }
 
 CheckForDuplicateStudies <- function(studies=NULL,
-                                     fields= c("doi", "title", "authors", "abbreviation"),
+                                     fields=c("doi", "title", "authors",
+                                              "abbreviation"),
                                      fuzzy.min.sims=c(1, 0.9, 0.9, 1),
-                                     all.entries=FALSE, ids.only=FALSE, conn=eaDB){
+                                     all.entries=FALSE, ids.only=FALSE,
+                                     conn=eaDB){
+  # Checks whether entries in the provided `studies` data frame are already
+  # present in the `studies` table. If no data.frame is provided, checks for
+  # duplicates present within the `studies` table.
+  #
+  # Args:
+  #   source: A data frame as used for entry of new studies with
+  #     `CreateStudies()` and produced with `TemplateStudies()`.
+  #   fields: Fields in table to be used for duplicate detection. Default is
+  #     `c("doi", "title", "authors", "abbreviation")`.
+  #   fuzzy.min.sims: A numeric vector containing the minimum similarities for
+  #     duplicate matching based on similarity. The vector must contain one
+  #     entry for each field provided in `fields`, in the same order. Values
+  #     can range from 0 (everything matches) to 1 (only exact matches).
+  #     Default is c(1, 0.9, 0.9, 1).
+  #   all.entries: If FALSE, will not include duplicates based on partial or
+  #     similarity matching, if a corresponding exact duplicate has already
+  #     been detected. In the same way, duplicates based on similarity matching
+  #     will not be included if a corresponding partial duplicate has already
+  #     been detected. If TRUE, no duplicate matches will be excluded. Default
+  #     is FALSE.
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     all fields will be returned. Default is FALSE.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame containing duplicates, including the type of duplicates, the
+  #   corresponding ID in the `studies` table and corresponding row in the
+  #   provided data frame. If no source is provided and an internal matching
+  #   performed, the returned data frame includes two IDs columns corresponding
+  #   to the `study_id` field.
+
   CheckForDuplicates(source=studies, table = "studies", fields=fields,
                      id.field="study_id", fuzzy.min.sims = fuzzy.min.sims,
                      all.entries = all.entries, ids.only = ids.only, conn=conn)
@@ -944,49 +1262,118 @@ CheckForDuplicateStudies <- function(studies=NULL,
 CheckForDuplicateAssessors <- function(assessors=NULL,
                                        fields= c("name", "email"),
                                        fuzzy.min.sims=c(0.85, 0.85),
-                                       all.entries=FALSE, ids.only=FALSE, conn=eaDB){
+                                       all.entries=FALSE, ids.only=FALSE,
+                                       conn=eaDB){
+  # Args:
+  #   source: A data frame as used for entry of new assessors with
+  #     `CreateAssessors()` and produced with `TemplateAssessors()`.
+  #   fields: Fields in table to be used for duplicate detection. Default is
+  #     `c("name", "email")`.
+  #   fuzzy.min.sims: A numeric vector containing the minimum similarities for
+  #     duplicate matching based on similarity. The vector must contain one
+  #     entry for each field provided in `fields`, in the same order. Values
+  #     can range from 0 (everything matches) to 1 (only exact matches).
+  #     Default is c(0.85, 0.85).
+  #   all.entries: If FALSE, will not include duplicates based on partial or
+  #     similarity matching, if a corresponding exact duplicate has already
+  #     been detected. In the same way, duplicates based on similarity matching
+  #     will not be included if a corresponding partial duplicate has already
+  #     been detected. If TRUE, no duplicate matches will be excluded. Default
+  #     is FALSE.
+  #   ids.only: If TRUE, only fields that contain IDs are returned. If FALSE,
+  #     all fields will be returned. Default is FALSE.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame containing duplicates, including the type of duplicates, the
+  #   corresponding ID in the `assessors` table and corresponding row in the
+  #   provided data frame. If no source is provided and an internal matching
+  #   performed, the returned data frame includes two IDs columns corresponding
+  #   to the `assessor_id` field.
+
+
   CheckForDuplicates(source=assessors, table = "assessors", fields=fields,
                      id.field="assessor_id", fuzzy.min.sims = fuzzy.min.sims,
                      all.entries = all.entries, ids.only = ids.only, conn=conn)
 }
 
-CombineDuplicateStudies <- function(duplicate.ids, original.ids, update.loe=T,
-                                    conn=eaDB){
-  
+CombineDuplicateStudies <- function(duplicate.ids, original.ids,
+                                    update.loe=TRUE, conn=eaDB){
+  # Combine duplicate studies for the entire database.
+  #
+  # Args:
+  #   duplicate.ids: A numeric or integer vector containing the IDs of
+  #     duplicate studies (referring to entries in the `study_id` field), in the
+  #     same order as the IDs of the corresponding originals.
+  #   original.ids: A numeric or integer vector containing the IDs of the
+  #     original studies (referring to entries in the `study_id` field), in the
+  #     same order as the IDs of the corresponding duplicates.
+  #   update.loe: If TRUE, the quality scores and level of evidence in the
+  #     `level_of_evidence` table will be calculated for each original study.
+  #     If FALSE, not. Updating can be done seperately by using `UpdateLoE()`.
+  #     Default is TRUE.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A list indicating the number of removed and modified entries in the
+  #   tables `studies`, `level_of_evidence` and `quality`.
+
   modified <- ReplaceIDs(duplicate.ids = duplicate.ids, original.ids = original.ids,
                          id.field="study_id", sort.field="assessment_id",
                          tables=c("level_of_evidence", "quality"), conn=conn)
-  
+
   studies_removed <- RemoveRecords(ids=duplicate.ids, id.field="study_id",
                                    table="studies", conn=conn)
-  
+
   if(update.loe == TRUE){
     UpdateLoE(study.ids=original.ids, conn=conn)
   }
-  
+
   combined <- list(removed_in_studies = studies_removed,
                    modified_in_level_of_evidence=modified$modified$level_of_evidence,
                    removed_in_level_of_evidence=modified$removed$level_of_evidence,
                    modified_in_quality=modified$modified$quality,
                    removed_in_quality=modified$removed$quality)
-  
+
   return(combined)
 }
 
-CombineDuplicateAssessments <- function(duplicate.ids, original.ids, update.loe=T,
-                                        conn=eaDB){
-  
+CombineDuplicateAssessments <- function(duplicate.ids, original.ids,
+                                        update.loe=TRUE, conn=eaDB){
+  # Combine duplicate assessments for the entire database.
+  #
+  # Args:
+  #   duplicate.ids: A numeric or integer vector containing the IDs of
+  #     duplicate assessments (referring to entries in the `assessments_id`
+  #     field), in the same order as the IDs of the corresponding original
+  #     entries.
+  #   original.ids: A numeric or integer vector containing the IDs of the
+  #     original assessments (referring to entries in the `assessments_id`
+  #     field), in the same order as the IDs of the corresponding duplicates.
+  #   update.loe: If TRUE, the quality scores and level of evidence in the
+  #     `level_of_evidence` table will be calculated for each original
+  #     assessment. If FALSE, not. Updating can be done seperately by using
+  #     `UpdateLoE()`. Default is TRUE.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A list indicating the number of removed and modified entries in the
+  #   tables `assessments`, `level_of_evidence` and `quality`.
+
   modified <- ReplaceIDs(duplicate.ids = duplicate.ids,
                          original.ids = original.ids,
                          id.field="assessment_id", sort.field="study_id",
                          tables=c("level_of_evidence", "quality"),
                          conn=conn)
-  
+
   # Remove from assessments
   assessments_removed <- RemoveRecords(ids=duplicate.ids, id.field="assessment_id",
                                        table="assessments", conn=conn)
-  
-  
+
+
   if(update.loe == TRUE){
     # Get IDs of studies to update
     update_loe_ids <- dbGetQuery(conn=conn,
@@ -996,8 +1383,8 @@ CombineDuplicateAssessments <- function(duplicate.ids, original.ids, update.loe=
     update_loe_ids <- unique(update_loe_ids[,1])
     UpdateLoE(study.ids=update_loe_ids, conn=conn)
   }
-  
-  
+
+
   combined <- list(removed_in_assessments = assessments_removed,
                    modified_in_level_of_evidence=modified$modified$level_of_evidence,
                    removed_in_level_of_evidence=modified$removed$level_of_evidence,
@@ -1007,6 +1394,23 @@ CombineDuplicateAssessments <- function(duplicate.ids, original.ids, update.loe=
 }
 
 CombineDuplicateAssessors <- function(duplicate.ids, original.ids, conn=eaDB){
+  # Combine duplicate assessors for the entire database.
+  #
+  # Args:
+  #   duplicate.ids: A numeric or integer vector containing the IDs of
+  #     duplicate assessors (referring to entries in the `assessor_id`
+  #     field), in the same order as the IDs of the corresponding original
+  #     entries.
+  #   original.ids: A numeric or integer vector containing the IDs of the
+  #     original assessors (referring to entries in the `assessor_id`
+  #     field), in the same order as the IDs of the corresponding duplicates.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A list with the numbers of removed and modified entries in thetables
+  #   `assessors` and `assessments`.
+
   modified <- dbExecute(conn=conn, "UPDATE assessments
             SET assessor_id = ?
             WHERE assessor_id = ?;",
@@ -1017,26 +1421,78 @@ CombineDuplicateAssessors <- function(duplicate.ids, original.ids, conn=eaDB){
   return(combined)
 }
 
-###################### ##
-# DELETE FUNCTIONS ######
-###################### ##
+######################################################################### #
+# DELETE FUNCTIONS ########################################################
+######################################################################### #
 
 RemoveStudies <- function(study.ids, conn=eaDB){
+  # Removes studies from the entire database (including level of evidence,
+  #   quality scores and checklist answers).
+  #
+  # Args:
+  #   study.ids: IDs of studies to be removed from the database. Refers to
+  #     entries in the field `study_id` of the `studies` table.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   The number of studies removed from the database.
+
   n_rem <- RemoveRecords(ids=study.ids, id.field = "study_id", table="studies")
   return(n_rem)
 }
 
 RemoveAssessors <- function(assessor.ids, conn=eaDB){
-  n_rem <- RemoveRecords(ids=assessor.ids, id.field = "assessor_id", table="assessors")
+  # Removes assessors from the entire database (including level of evidence,
+  #   quality scores and checklist answers).
+  #
+  # Args:
+  #   assessor.ids: IDs of assessors to be removed from the database. Refers to
+  #     entries in the field `assessor_id` of the `assessors` table.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   The number of assessors removed from the database.
+
+  n_rem <- RemoveRecords(ids=assessor.ids, id.field = "assessor_id",
+                             table="assessors")
   return(n_rem)
 }
 
 RemoveAssessments <- function(assessment.ids, conn=eaDB){
+  # Removes assessments from the entire database (including level of evidence,
+  #   quality scores and checklist answers).
+  #
+  # Args:
+  #   assessment.ids: IDs of assessments to be removed from the database.
+  #     Refers to entries in the field `assessment_id` of the `assessments`
+  #     table.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   The number of assessments removed from the database.
+
   n_rem <- RemoveRecords(ids=assessment.ids, id.field = "assessment_id", table="assessments")
   return(n_rem)
 }
 
 RemoveEvidenceForStudies <-  function(study.ids, conn=eaDB){
+  # Removes quality assessment data for studies, but keeps the studies in the
+  # database.
+  #
+  # Args:
+  #   study.ids: IDs of studies for which quality assessment data is to be
+  #     removed from the database. Refers to entries in the field `study_id` of
+  #     the `studies` table.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A list with the numbers of entries removed from the tables
+  #   `level_of_evidence` and `quality`.
+
   rem_loe <- RemoveRecords(ids=study.ids,
                            id.field = "study_id",
                            table="level_of_evidence")
@@ -1048,6 +1504,19 @@ RemoveEvidenceForStudies <-  function(study.ids, conn=eaDB){
 }
 
 RemoveEvidenceForAssessments <-  function(assessment.ids, conn=eaDB){
+  # Removes quality assessment data for assessments, but keeps the assessments # in the database.
+  #
+  # Args:
+  #   assessment.ids: IDs of assessment for which quality assessment data is to
+  #     be removed from the database. Refers to entries in the field
+  #     `assessment_id` of the `assessments` table.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A list with the numbers of entries removed from the tables
+  #   `level_of_evidence` and `quality`.
+
   rem_loe <- RemoveRecords(ids=assessment.ids,
                            id.field = "assessment_id",
                            table="level_of_evidence")
@@ -1059,23 +1528,36 @@ RemoveEvidenceForAssessments <-  function(assessment.ids, conn=eaDB){
 }
 
 RemoveEvidence <-  function(record.ids, conn=eaDB){
-  
+  # Removes records in the `level_of_evidence` table, but keeps the
+  # corresponding studies, assessments and assessors in the database.
+  #
+  # Args:
+  #   record.ids: IDs of records to be removed from the `level_of_evidence`
+  #   table. Refers to entries in the field `record_id` of the
+  #   `level_of_evidence` table.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A list with the numbers of entries removed from the tables
+  #   `level_of_evidence` and `quality`.
+
   to_remove <- dbGetQuery(conn=conn, "SELECT assessment_id, study_id
                                         FROM level_of_evidence
                                        WHERE record_id=?;",
                           params=list(record.ids))
-  
+
   rem_loe <- RemoveRecords(ids=record.ids,
                            id.field="record_id",
                            table="level_of_evidence")
-  
+
   q_remove <- paste0("DELETE FROM quality
                             WHERE assessment_id = ?
                               AND study_id = ?;")
   rem_quality <- dbExecute(conn, q_remove, params=list(to_remove$assessment_id,
                                                        to_remove$study_id))
-  
-  
+
+
   return(list(removed_from_level_of_evidence=rem_loe,
               removed_from_quality=rem_quality))
 }
@@ -1095,10 +1577,10 @@ UpdateStudies <- function(study.ids, studies.update, conn=eaDB){
   studies$title <- as.character(input$title)
   studies$year <- as.integer(input$year)
   studies$doi <- as.character(input$doi)
-  
+
   studies_update <- studies
   n_entries <- nrow(studies_update) # number of new entries
-  
+
   if(n_entries > 0){
     # SQL statement for insertion
     update_studies <- dbSendStatement(conn,
@@ -1123,7 +1605,7 @@ UpdateStudies <- function(study.ids, studies.update, conn=eaDB){
 }
 
 UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
-  
+
   # Format input data
   input <- assessors.update
   n <- nrow(input)
@@ -1131,10 +1613,10 @@ UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
   assessors <- TemplateAssessors(n)
   assessors$name <- as.character(input$name)
   assessors$email <- as.character(input$email)
-  
+
   assessors_update <- assessors
   n_entries <- nrow(assessors_update) # number of new entries
-  
+
   if(n_entries > 0){
     # SQL statement for insertion
     update_assessors <- dbSendStatement(conn,
@@ -1153,7 +1635,7 @@ UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
 }
 
 UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
-  
+
   # Format input data
   input <- assessment.update
   n <- nrow(input)
@@ -1162,10 +1644,10 @@ UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
   assessments$assessor_id <- as.character(input$assessor_id)
   assessments$source <- as.character(input$source)
   assessments$date_entered <- as.character(input$date_entered)
-  
+
   assessments_update <- assessments
   n_entries <- nrow(assessments_update) # number of new entries
-  
+
   if(n_entries > 0){
     # SQL statement for insertion
     update_assessments <- dbSendStatement(conn,
@@ -1186,13 +1668,15 @@ UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
 }
 
 ReassessStudies <- function(studies, assessment.id, conn=eaDB){
+  # FOR DOC: Difference to UpdateLoE: UpdateLoE update based on existing quality info in DB
+
   # Remove existing evidence for studies in given assessment
   to_remove <- expand.grid(study_id=studies$study_id, assessment_id=assessment.id)
   ids_rem <- dbGetQuery(conn, "SELECT record_id
                         FROM level_of_evidence WHERE study_id = ? AND assessment_id = ?;",
                         params=list(to_remove$study_id, to_remove$assessment_id))
   removed <- RemoveEvidence(record.ids=ids_rem$record_id, conn=conn)
-  
+
   # Assess studies
   assessed <- AssessStudies(studies=studies, assessment.id=assessment.id)
   return(assessed)
@@ -1212,12 +1696,12 @@ MarkAsReviewed <- function(record.ids, conn=eaDB){
 
 IDsOnly <- function(results, id.field=NULL){
   # reduces columns of result set to ID columns only
-  
+
   if(is.null(id.field)){
     # If no ID field provided, get columns from data
     id_field_id <- which(grepl("_id", names(results)))
   }
-  
+
   if(!is.null(id.field)){
     # If ID field is provided, get index
     id_field_id <- which(names(results) %in% id.field)
@@ -1226,7 +1710,7 @@ IDsOnly <- function(results, id.field=NULL){
       id_field_id <- which(grepl("_id", names(results)))
     }
   }
-  
+
   if(length(id_field_id) != 0){
     results <- results[,id_field_id]
   } else {
@@ -1237,25 +1721,25 @@ IDsOnly <- function(results, id.field=NULL){
 
 ReplaceIDs <- function(duplicate.ids, original.ids, id.field, sort.field,
                        tables, conn=eaDB){
-  
+
   if(length(duplicate.ids) != length(original.ids)){
     stop("Numbers of duplicate IDs and original IDs don't match.")
   }
-  
+
   n_ids <- length(duplicate.ids)
-  
+
   # Prepare lists to store number changed and deleted records
   n_removed <- vector("list", length(tables))
   names(n_removed) <- tables
   n_removed[1:length(tables)] <- as.integer(0)
   n_modified <- n_removed
-  
+
   for(i in 1:n_ids){
     duplicate.id <- duplicate.ids[i]
     original.id <- original.ids[i]
     for(j in 1:length(tables)){
       table <- tables[j]
-      
+
       q_sort <- paste0("SELECT ", dbQuoteIdentifier(conn, sort.field),
                        "  FROM ", dbQuoteIdentifier(conn, table),
                        " WHERE ", dbQuoteIdentifier(conn, id.field), " = ?;")
@@ -1265,21 +1749,21 @@ ReplaceIDs <- function(duplicate.ids, original.ids, id.field, sort.field,
       q_update <- paste0("UPDATE ",  dbQuoteIdentifier(conn, table),
                          "   SET ", dbQuoteIdentifier(conn, id.field), " = ?
                            WHERE ", dbQuoteIdentifier(conn, id.field), " = ?;")
-      
+
       # Get assessment_ids for duplicate and original
       sort_ids_dup <- dbGetQuery(conn, q_sort, params=list(duplicate.id))
       sort_ids_org <- dbGetQuery(conn, q_sort, params=list(original.id))
       sort_ids_dup <- unique(sort_ids_dup[,1])
       sort_ids_org <- unique(sort_ids_org[,1])
-      
+
       # Finding assignments for duplicate that already contain the original
       sort_ids_dup_del <- sort_ids_org[which(sort_ids_org %in% sort_ids_dup)]
-      
+
       # Delete duplicate study from assignments that already contain original
       records_delete <- list(sort_ids_dup_del,
                              rep(duplicate.id, length(sort_ids_dup_del)))
       n_del_new <- dbExecute(conn, q_delete, params=records_delete)
-      
+
       # Replace duplicate binding with original
       records_replace <- list(as.character(original.id), as.character(duplicate.id))
       n_repl_new <- dbExecute(conn, q_update, params=records_replace)
@@ -1302,29 +1786,29 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
   if(is.null(study.ids)){
     study.ids <- GetStudies(ids.only = T)
   }
-  
+
   # Get info on IDs
   studies <- dbGetQuery(conn=conn,
                         "SELECT study_id, assessment_id, study_design
                         FROM level_of_evidence
                         WHERE study_id = ?;",
                         params=list(study.ids))
-  
+
   # Get preliminary LoE
   loe_pre <- dbGetQuery(conn, "SELECT loe_pre
                         FROM study_designs
                         WHERE study_design = ?;",
                         param=list(studies$study_design))
-  
+
   # Check whether a preliminary LoE could be assigned to each study
   if(nrow(loe_pre) != nrow(studies)){
     designs <- dbGetQuery(conn, "SELECT DISTINCT study_design FROM study_designs;")
     stop(paste0("One or more study designs could not been assigned a preliminary LoE. Please assure that the study design provided for each study is one of the following: '", paste(designs$study_design, collapse = "', '","'"), sep = ""))
   }
-  
+
   # Add assigned preliminary LoE
   studies$loe_pre <- loe_pre$loe_pre
-  
+
   # Calculate quality scores based on existing information in quality table;
   # calculations are performed at the database level
   qscores <- dbGetQuery(conn, "SELECT study_id,
@@ -1343,7 +1827,7 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
   studies$points_p <- qscores$points_p
   studies$points_q <- qscores$points_q
   studies$q_score <- qscores$q_score[match(studies$study_id, qscores$study_id)] * 100
-  
+
   # Downgrade LoE according to quality score
   studies$q_score[is.na(studies$q_score)] <- -9  # placeholder for calculation
   adjustments <- dbGetQuery(conn, "SELECT adjustment_id,
@@ -1358,7 +1842,7 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
                           param=list(adjustments$adjustment_id, studies$loe_pre))
   studies$loe_final <- loe_final$loe_final
   studies$q_score[studies$q_score == -9] <- NA  # Reset to NA
-  
+
   # Update values in LoE
   q_update <- paste0("UPDATE level_of_evidence
                      SET loe_final = ?,
@@ -1377,11 +1861,11 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
                          studies$downgrading,
                          studies$assessment_id,
                          studies$study_id)
-  
+
   loe_update <- dbSendStatement(conn,q_update)
   dbBind(loe_update, params=records_update)
   dbClearResult(loe_update)
-  
+
   updated_records <- dbGetQuery(conn, "SELECT assessment_id,
                                 study_id,
                                 loe_final,
