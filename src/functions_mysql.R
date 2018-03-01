@@ -1566,9 +1566,9 @@ RemoveEvidence <-  function(record.ids, conn=eaDB){
               removed_from_quality=rem_quality))
 }
 
-###################### ##
-# UPDATE FUNCTIONS ######
-###################### ##
+######################################################################### #
+# UPDATE FUNCTIONS ########################################################
+######################################################################### #
 
 UpdateStudies <- function(study.ids, studies.update, conn=eaDB){
   # Updates entire entries in the `studies` table.
@@ -1765,9 +1765,9 @@ MarkAsReviewed <- function(record.ids, conn=eaDB){
   return(reviewed)
 }
 
-###################### ##
-# HELPER FUNCTIONS ######
-###################### ##
+######################################################################### #
+# HELPER FUNCTIONS ########################################################
+######################################################################### #
 
 IDsOnly <- function(results, id.field=NULL){
   # Reduces a data frame to one or more ID columns.
