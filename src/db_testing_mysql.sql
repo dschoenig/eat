@@ -7,10 +7,10 @@ CREATE DATABASE evidence_testing;
 
 /* User account */
 DROP USER IF EXISTS 'evidence_test'@'%';
-CREATE USER 'evidence_test'@'%' IDENTIFIED BY 'dbtest';
+CREATE USER 'evidence_test'@'%' IDENTIFIED BY 'dbtest'
+       WITH MAX_USER_CONNECTIONS 1;
 GRANT ALL PRIVILEGES ON evidence_testing.* TO 'evidence_test'@'%';
 
-FLUSH PRIVILEGES;
 
 /* Database structure */
 USE evidence_testing;
@@ -182,8 +182,6 @@ CREATE TABLE level_of_evidence (
 );
 
 /* Initialize study design and corresponding level of evidence*/
-
-USE evidence_assessment;
 
 INSERT INTO study_designs(study_design, loe_pre)
       VALUES ('Systematic review','LoE1a');

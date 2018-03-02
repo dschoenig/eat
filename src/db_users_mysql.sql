@@ -9,5 +9,3 @@ GRANT SELECT, INSERT ON evidence_assessment.* TO 'evidence_user'@'%';
 DROP USER IF EXISTS 'evidence_ro'@'%';
 CREATE USER 'evidence_ro'@'%';
 GRANT SELECT ON evidence_assessment.* TO 'evidence_ro'@'%';
-
-FLUSH PRIVILEGES;

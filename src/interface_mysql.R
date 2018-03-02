@@ -4,10 +4,10 @@
 # removal, as well as duplicate handling.
 #
 # The R interface depends on a correctly structured and initialized MySQL or
-# MariaDB database. Please refer to the SQL documentation for the eveidence
+# MariaDB database. Please refer to the SQL documentation for the evidence
 # assessment database to ensure that your database has been set up correctly.
 # Some functions will not work for database users with restricted rights. In
-# particular, all `CombineDuplicates` functons, all `Remove` functions, and
+# particular, all `CombineDuplicates` functions, all `Remove` functions, and
 # `ReassessStudies` require the user to possess `DELETE` rights. The interface
 # functions have been built mainly on top of the `DBI` and `RMariaDB` packages.
 # These packages offer general purpose functions to interact with the evidence
@@ -18,10 +18,18 @@
 #
 # Mupepele, A.-C., Walsh, J. C., Sutherland, W. J., & Dormann, C. F. (2016). An
 # evidence assessment tool for ecosystem services and conservation studies.
-# Ecological Applications, 26(5), 1295–1301. https://doi.org/10.1890/15-0595
+  # Ecological Applications, 26(5), 1295–1301. https://doi.org/10.1890/15-0595
 
-# Check for installed packages
-all(c("DBI", "RMariaDB", "stringdist", "tidyr") %in% rownames(installed.packages()))
+######################################################################### #
+# DEPENDENCIES#############################################################
+######################################################################### #
+
+# Check for installed packages and install, if necessary
+if(!all(c("DBI", "RMariaDB", "stringdist", "tidyr") %in% rownames(installed.packages()))){
+  to_install <- !c("DBI", "RMariaDB", "stringdist", "tidyr") %in% rownames(installed.packages())
+  packages_install <- c("DBI", "RMariaDB", "stringdist", "tidyr")[to_install]
+  install.packages(packages_install)
+}
 
 # Load packages
 library(DBI)
@@ -29,7 +37,7 @@ library(stringdist)
 library(tidyr)
 
 ######################################################################### #
-# FUNCTIONS FOR DATA ENTRY ################################################
+# DATA ENTRY ##############################################################
 ######################################################################### #
 
 CreateStudies <- function(studies, force=FALSE, conn=eaDB){
@@ -116,6 +124,7 @@ CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
   n <- nrow(input)
   assessors <- TemplateAssessors(N=n)
   assessors$name <- as.character(input$name)
+  assessors$affiliation <- as.character(input$affiliation)
   assessors$email <- as.character(input$email)
 
   if(force == FALSE){
@@ -135,9 +144,10 @@ CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
   if(n_entries > 0){
     # SQL statement for insertion
     insert_assessor <- dbSendStatement(conn,
-                                       "INSERT INTO assessors(name, email)
-                                             VALUES (?, ?);")
+                                       "INSERT INTO assessors(name, affiliation, email)
+                                             VALUES (?, ?, ?);")
     dbBind(insert_assessor, param=list(assessors_new$name,
+                                       assessors_new$affiliation,
                                        assessors_new$email))
     dbClearResult(insert_assessor)
   }
@@ -232,7 +242,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
   # Format input data
   input <- studies
   n <- nrow(input)
-  studies <- TemplateAssessStudies(n, n_questions)
+  studies <- TemplateAssessStudies(n)
   studies$study_id <- as.integer(as.character(input$study_id))
   studies$study_design <- as.character(input$study_design)
   studies$res_context <- as.character(input$res_context)
@@ -392,7 +402,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
 }
 
 ######################################################################### #
-# FUNCTIONS FOR DATA RETRIEVAL ############################################
+# DATA RETRIEVAL ##########################################################
 ######################################################################### #
 
 GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
@@ -945,84 +955,7 @@ GetRecordsToReview <- function(ids.only=FALSE, conn=eaDB){
 }
 
 ######################################################################### #
-# TEMPLATE FUNCTIONS ######################################################
-######################################################################### #
-
-TemplateStudies <- function(N=1){
-  # Creates a template data frame to be used with `CreateStudies()`
-  #
-  # Args:
-  #   N: Number of rows in the template.
-  #
-  # Returns:
-  #   A data frame with N rows and colummns as needed for use with
-  #   `CreateStudies()`
-  studies <- data.frame("abbreviation" = character(N),
-                        "authors" = character(N),
-                        "title" = character(N),
-                        "year" = integer(N),
-                        "doi" = character(N))
-  return(studies)
-}
-
-TemplateAssessors <- function(N=1){
-  # Creates a template data frame to be used with `CreateAssessors()`
-  #
-  # Args:
-  #   N: Number of rows in the template.
-  #
-  # Returns:
-  #   A data frame with N rows and colummns as needed for use with
-  #   `CreateAssessors()`
-  assessors <- data.frame("name" = character(N),
-                          "email" = character(N))
-  return(assessors)
-}
-
-TemplateAssessments <- function(N=1){
-  # Creates a template data frame to be used with `CreateAssessments()`
-  #
-  # Args:
-  #   N: Number of rows in the template.
-  #
-  # Returns:
-  #   A data frame with N rows and colummns as needed for use with
-  #   `CreateAssessments()`
-  assessments <- data.frame("assessor_id" = integer(N),
-                            "source" = character(N))
-  return(assessments)
-}
-
-TemplateAssessStudies <- function(N=1){
-  # Creates a template data frame to be used with `AssessStudies()`
-  #
-  # Args:
-  #   N: Number of rows in the template.
-  #
-  # Returns:
-  #   A data frame with N rows and colummns as needed for use with
-  #   `AssessStudies()()`
-
-  # Get number of questions in checklist
-  n_questions <- as.integer(dbGetQuery(conn, "SELECT COUNT(question_id)
-                                                FROM checklist")[1,1])
-
-  studies_details <- data.frame("study_id" = integer(N),
-                                "study_design" = character(N),
-                                "res_context" = character(N),
-                                "res_focus" = character(N),
-                                "res_question" = character(N),
-                                "res_outcome" = character(N))
-  # Prepare columns for answers to checklist questions
-  studies_checklist <- matrix(NA, N, n_questions)
-  studies_checklist <- as.data.frame(studies_checklist)
-  colnames(studies_checklist) <- paste0("q", seq(1:n_questions))
-
-  return(cbind(studies_details, studies_checklist))
-}
-
-######################################################################### #
-# FUNCTIONS FOR HANDLING DUPLICATES #######################################
+# DUPLICATE HANDLING ######################################################
 ######################################################################### #
 
 CheckForDuplicates <- function(source=NULL, table, fields, id.field,
@@ -1426,6 +1359,205 @@ CombineDuplicateAssessors <- function(duplicate.ids, original.ids, conn=eaDB){
 }
 
 ######################################################################### #
+# UPDATE FUNCTIONS ########################################################
+######################################################################### #
+
+UpdateStudies <- function(study.ids, studies.update, conn=eaDB){
+  # Updates entire entries in the `studies` table.
+  #
+  # Args:
+  #   study.ids: A vector of study IDs to be updated (refers to entries in the
+  #     `study_id` field in the `studies` table). Must be provided in the same
+  #     order as corresponding entries in `studies.update`.
+  #   studies.update: A data frame with updated information in the format
+  #     provided by `TemplateStudies()`. Must be provided in the same order as
+  #     the corresponding IDs in `study.ids`.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of updated records in the `studies` table.
+
+  # Format input data
+  input <- studies.update
+  n <- nrow(input)
+  study.ids <- as.integer(as.character(study.ids))
+  studies <- TemplateStudies(n)
+  studies$abbreviation <- as.character(input$abbreviation)
+  studies$authors <- as.character(input$authors)
+  studies$title <- as.character(input$title)
+  studies$year <- as.integer(input$year)
+  studies$doi <- as.character(input$doi)
+
+  studies_update <- studies
+  n_entries <- nrow(studies_update) # number of new entries
+
+  if(n_entries > 0){
+    # SQL statement for insertion
+    update_studies <- dbSendStatement(conn,
+                                      "UPDATE studies
+                                      SET abbreviation = ?,
+                                      authors = ?,
+                                      title = ?,
+                                      year = ?,
+                                      doi = ?
+                                      WHERE study_id = ?;")
+    dbBind(update_studies, params=list(studies_update$abbreviation,
+                                       studies_update$authors,
+                                       studies_update$title,
+                                       studies_update$year,
+                                       studies_update$doi,
+                                       study.ids))
+    dbClearResult(update_studies)
+  }
+  updated <- dbGetQuery(conn, "SELECT * FROM studies WHERE study_id = ?;",
+                        param=list(study.ids))
+  return(updated)
+}
+
+UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
+  # Updates entire entries in the `assessors` table.
+  #
+  # Args:
+  #   assessor.ids: A vector of assessor IDs to be updated (refers to entries
+  #     in the `assessor_id` field in the `assessors` table). Must be provided
+  #     in the same order as corresponding entries in `assessors.update`.
+  #   assessors.update: A data frame with updated information in the format
+  #     provided by `TemplateAssessors()`. Must be provided in the same order
+  #     as the corresponding IDs in `assessor.ids`.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of updated records in the `assessors` table.
+
+  # Format input data
+  input <- assessors.update
+  n <- nrow(input)
+  assessor.ids <- as.integer(as.character(assessor.ids))
+  assessors <- TemplateAssessors(n)
+  assessors$name <- as.character(input$name)
+  assessors$email <- as.character(input$email)
+
+  assessors_update <- assessors
+  n_entries <- nrow(assessors_update) # number of new entries
+
+  if(n_entries > 0){
+    # SQL statement for insertion
+    update_assessors <- dbSendStatement(conn,
+                                        "UPDATE assessors
+                                        SET name = ?,
+                                        email = ?
+                                        WHERE assessor_id = ?;")
+    dbBind(update_assessors, params=list(assessors_update$name,
+                                         assessors_update$email,
+                                         assessor.ids))
+    dbClearResult(update_assessors)
+  }
+  updated <- dbGetQuery(conn, "SELECT * FROM assessors WHERE assessor_id = ?;",
+                        param=list(assessor.ids))
+  return(updated)
+}
+
+UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
+  # Updates entire entries in the `assessments` table.
+  #
+  # Args:
+  #   assessment.ids: A vector of assessment IDs to be updated (refers to
+  #     entries in the `assessment_id` field in the `assessments` table). Must
+  #     be provided in the same order as corresponding entries in
+  #     `assessments.update`.
+  #   assessments.update: A data frame with updated information in the format
+  #     provided by `TemplateAssessors()`. Must be provided in the same order
+  #     as the corresponding IDs in `assessment.ids`.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of updated records in the `assessments` table.
+
+  # Format input data
+  input <- assessment.update
+  n <- nrow(input)
+  assessment.ids <- as.integer(as.character(assessment.ids))
+  assessments <- TemplateAssessments(n)
+  assessments$assessor_id <- as.character(input$assessor_id)
+  assessments$source <- as.character(input$source)
+  assessments$date_entered <- as.character(input$date_entered)
+
+  assessments_update <- assessments
+  n_entries <- nrow(assessments_update) # number of new entries
+
+  if(n_entries > 0){
+    # SQL statement for insertion
+    update_assessments <- dbSendStatement(conn,
+                                          "UPDATE assessments
+                                          SET assessor_id = ?,
+                                          source = ?,
+                                          date_entered = ?
+                                          WHERE assessment_id = ?;")
+    dbBind(update_assessments, params=list(assessments_update$assessor_id,
+                                           assessments_update$source,
+                                           assessments_update$date_entered,
+                                           assessment.ids))
+    dbClearResult(update_assessments)
+  }
+  updated <- dbGetQuery(conn, "SELECT * FROM assessments WHERE assessor_id = ?;",
+                        param=list(assessment.ids))
+  return(updated)
+}
+
+ReassessStudies <- function(studies, assessment.id, conn=eaDB){
+  # Removes existing quality assessment data for specific studies that are part
+  # of a specific assessment, and then reassesses studies based on updated
+  # information. For a simple update of the quality scores and level of
+  # evidence based on quality assessment data that is already present in the
+  # database, use `UpdateLoE()`
+  #
+  # Args:
+  #   studies: A data frame with updated quality information, in the format
+  #     provided by `TemplateAssessStudies()`.
+  #   assessment.id: ID of the assessment to be updated (refers to entries in
+  #     the `assessment_id` field in the `assessments` table).
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of updated records in the `level_of_evidence` table.
+
+  # Remove existing evidence for studies in given assessment
+  to_remove <- expand.grid(study_id=studies$study_id, assessment_id=assessment.id)
+  ids_rem <- dbGetQuery(conn, "SELECT record_id
+                        FROM level_of_evidence WHERE study_id = ? AND assessment_id = ?;",
+                        params=list(to_remove$study_id, to_remove$assessment_id))
+  removed <- RemoveEvidence(record.ids=ids_rem$record_id, conn=conn)
+
+  # Assess studies
+  assessed <- AssessStudies(studies=studies, assessment.id=assessment.id)
+  return(assessed)
+}
+
+MarkAsReviewed <- function(record.ids, conn=eaDB){
+  # Marks records as reviewed. Use `GetRecordsToReview()` to obtain a data
+  # frame of records to be reviewed.
+  #
+  # Args:
+  #   record.ids: A vector of record IDs to be reviewed. Refers to the
+  #     `record_id` field in the `level_of_evidence` table.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of the reviewed records in the `level_of_evidence` table.
+
+  dbExecute(conn, "UPDATE level_of_evidence
+            SET reviewed = 'yes'
+            WHERE record_id = ?;", params=list(record.ids))
+  reviewed <- GetLoE(select=record.ids, field="record_id", mode="exact", conn=conn)
+  return(reviewed)
+}
+
+######################################################################### #
 # DELETE FUNCTIONS ########################################################
 ######################################################################### #
 
@@ -1567,202 +1699,85 @@ RemoveEvidence <-  function(record.ids, conn=eaDB){
 }
 
 ######################################################################### #
-# UPDATE FUNCTIONS ########################################################
+# TEMPLATES ###############################################################
 ######################################################################### #
 
-UpdateStudies <- function(study.ids, studies.update, conn=eaDB){
-  # Updates entire entries in the `studies` table.
+TemplateStudies <- function(N=1){
+  # Creates a template data frame to be used with `CreateStudies()`
   #
   # Args:
-  #   study.ids: A vector of study IDs to be updated (refers to entries in the
-  #     `study_id` field in the `studies` table). Must be provided in the same
-  #     order as corresponding entries in `studies.update`.
-  #   studies.update: A data frame with updated information in the format
-  #     provided by `TemplateStudies()`. Must be provided in the same order as
-  #     the corresponding IDs in `study.ids`.
-  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
-  #     MySQL or MariaDB conncection. Default is eaDB.
+  #   N: Number of rows in the template.
   #
   # Returns:
-  #   A data frame of updated records in the `studies` table.
-
-  # Format input data
-  input <- studies.update
-  n <- nrow(input)
-  study.ids <- as.integer(as.character(study.ids))
-  studies <- TemplateStudies(n)
-  studies$abbreviation <- as.character(input$abbreviation)
-  studies$authors <- as.character(input$authors)
-  studies$title <- as.character(input$title)
-  studies$year <- as.integer(input$year)
-  studies$doi <- as.character(input$doi)
-
-  studies_update <- studies
-  n_entries <- nrow(studies_update) # number of new entries
-
-  if(n_entries > 0){
-    # SQL statement for insertion
-    update_studies <- dbSendStatement(conn,
-                                      "UPDATE studies
-                                          SET abbreviation = ?,
-                                              authors = ?,
-                                              title = ?,
-                                              year = ?,
-                                              doi = ?
-                                        WHERE study_id = ?;")
-    dbBind(update_studies, params=list(studies_update$abbreviation,
-                                       studies_update$authors,
-                                       studies_update$title,
-                                       studies_update$year,
-                                       studies_update$doi,
-                                       study.ids))
-    dbClearResult(update_studies)
-  }
-  updated <- dbGetQuery(conn, "SELECT * FROM studies WHERE study_id = ?;",
-                        param=list(study.ids))
-  return(updated)
+  #   A data frame with N rows and colummns as needed for use with
+  #   `CreateStudies()`
+  studies <- data.frame("abbreviation" = character(N),
+                        "authors" = character(N),
+                        "title" = character(N),
+                        "year" = integer(N),
+                        "doi" = character(N),
+                        stringsAsFactors = FALSE)
+  return(studies)
 }
 
-UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
-  # Updates entire entries in the `assessors` table.
+TemplateAssessors <- function(N=1){
+  # Creates a template data frame to be used with `CreateAssessors()`
   #
   # Args:
-  #   assessor.ids: A vector of assessor IDs to be updated (refers to entries
-  #     in the `assessor_id` field in the `assessors` table). Must be provided
-  #     in the same order as corresponding entries in `assessors.update`.
-  #   assessors.update: A data frame with updated information in the format
-  #     provided by `TemplateAssessors()`. Must be provided in the same order
-  #     as the corresponding IDs in `assessor.ids`.
-  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
-  #     MySQL or MariaDB conncection. Default is eaDB.
+  #   N: Number of rows in the template.
   #
   # Returns:
-  #   A data frame of updated records in the `assessors` table.
-
-  # Format input data
-  input <- assessors.update
-  n <- nrow(input)
-  assessor.ids <- as.integer(as.character(assessor.ids))
-  assessors <- TemplateAssessors(n)
-  assessors$name <- as.character(input$name)
-  assessors$email <- as.character(input$email)
-
-  assessors_update <- assessors
-  n_entries <- nrow(assessors_update) # number of new entries
-
-  if(n_entries > 0){
-    # SQL statement for insertion
-    update_assessors <- dbSendStatement(conn,
-                                        "UPDATE assessors
-                                            SET name = ?,
-                                                email = ?
-                                          WHERE assessor_id = ?;")
-    dbBind(update_assessors, params=list(assessors_update$name,
-                                         assessors_update$email,
-                                         assessor.ids))
-    dbClearResult(update_assessors)
-  }
-  updated <- dbGetQuery(conn, "SELECT * FROM assessors WHERE assessor_id = ?;",
-                        param=list(assessor.ids))
-  return(updated)
+  #   A data frame with N rows and colummns as needed for use with
+  #   `CreateAssessors()`
+  assessors <- data.frame("name" = character(N),
+                          "affiliation" = character(N),
+                          "email" = character(N),
+                          stringsAsFactors = FALSE)
+  return(assessors)
 }
 
-UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
-  # Updates entire entries in the `assessments` table.
+TemplateAssessments <- function(N=1){
+  # Creates a template data frame to be used with `CreateAssessments()`
   #
   # Args:
-  #   assessment.ids: A vector of assessment IDs to be updated (refers to
-  #     entries in the `assessment_id` field in the `assessments` table). Must
-  #     be provided in the same order as corresponding entries in
-  #     `assessments.update`.
-  #   assessments.update: A data frame with updated information in the format
-  #     provided by `TemplateAssessors()`. Must be provided in the same order
-  #     as the corresponding IDs in `assessment.ids`.
-  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
-  #     MySQL or MariaDB conncection. Default is eaDB.
+  #   N: Number of rows in the template.
   #
   # Returns:
-  #   A data frame of updated records in the `assessments` table.
-
-  # Format input data
-  input <- assessment.update
-  n <- nrow(input)
-  assessment.ids <- as.integer(as.character(assessment.ids))
-  assessments <- TemplateAssessments(n)
-  assessments$assessor_id <- as.character(input$assessor_id)
-  assessments$source <- as.character(input$source)
-  assessments$date_entered <- as.character(input$date_entered)
-
-  assessments_update <- assessments
-  n_entries <- nrow(assessments_update) # number of new entries
-
-  if(n_entries > 0){
-    # SQL statement for insertion
-    update_assessments <- dbSendStatement(conn,
-                                          "UPDATE assessments
-                                              SET assessor_id = ?,
-                                                  source = ?,
-                                                  date_entered = ?
-                                            WHERE assessment_id = ?;")
-    dbBind(update_assessments, params=list(assessments_update$assessor_id,
-                                           assessments_update$source,
-                                           assessments_update$date_entered,
-                                           assessment.ids))
-    dbClearResult(update_assessments)
-  }
-  updated <- dbGetQuery(conn, "SELECT * FROM assessments WHERE assessor_id = ?;",
-                        param=list(assessment.ids))
-  return(updated)
+  #   A data frame with N rows and colummns as needed for use with
+  #   `CreateAssessments()`
+  assessments <- data.frame("assessor_id" = integer(N),
+                            "source" = character(N),
+                            stringsAsFactors = FALSE)
+  return(assessments)
 }
 
-ReassessStudies <- function(studies, assessment.id, conn=eaDB){
-  # Removes existing quality assessment data for specific studies that are part
-  # of a specific assessment, and then reassesses studies based on updated
-  # information. For a simple update of the quality scores and level of
-  # evidence based on quality assessment data that is already present in the
-  # database, use `UpdateLoE()`
+TemplateAssessStudies <- function(N=1){
+  # Creates a template data frame to be used with `AssessStudies()`
   #
   # Args:
-  #   studies: A data frame with updated quality information, in the format
-  #     provided by `TemplateAssessStudies()`.
-  #   assessment.id: ID of the assessment to be updated (refers to entries in
-  #     the `assessment_id` field in the `assessments` table).
-  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
-  #     MySQL or MariaDB conncection. Default is eaDB.
+  #   N: Number of rows in the template.
   #
   # Returns:
-  #   A data frame of updated records in the `level_of_evidence` table.
+  #   A data frame with N rows and colummns as needed for use with
+  #   `AssessStudies()`
 
-  # Remove existing evidence for studies in given assessment
-  to_remove <- expand.grid(study_id=studies$study_id, assessment_id=assessment.id)
-  ids_rem <- dbGetQuery(conn, "SELECT record_id
-                        FROM level_of_evidence WHERE study_id = ? AND assessment_id = ?;",
-                        params=list(to_remove$study_id, to_remove$assessment_id))
-  removed <- RemoveEvidence(record.ids=ids_rem$record_id, conn=conn)
+  # Get number of questions in checklist
+  n_questions <- as.integer(dbGetQuery(conn, "SELECT COUNT(question_id)
+                                       FROM checklist")[1,1])
 
-  # Assess studies
-  assessed <- AssessStudies(studies=studies, assessment.id=assessment.id)
-  return(assessed)
-}
+  studies_details <- data.frame("study_id" = integer(N),
+                                "study_design" = character(N),
+                                "res_context" = character(N),
+                                "res_focus" = character(N),
+                                "res_question" = character(N),
+                                "res_outcome" = character(N),
+                                stringsAsFactors = FALSE)
+  # Prepare columns for answers to checklist questions
+  studies_checklist <- matrix(NA, N, n_questions)
+  studies_checklist <- as.data.frame(studies_checklist)
+  colnames(studies_checklist) <- paste0("q", seq(1:n_questions))
 
-MarkAsReviewed <- function(record.ids, conn=eaDB){
-  # Marks records as reviewed. Use `GetRecordsToReview()` to obtain a data
-  # frame of records to be reviewed.
-  #
-  # Args:
-  #   record.ids: A vector of record IDs to be reviewed. Refers to the
-  #     `record_id` field in the `level_of_evidence` table.
-  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
-  #     MySQL or MariaDB conncection. Default is eaDB.
-  #
-  # Returns:
-  #   A data frame of the reviewed records in the `level_of_evidence` table.
-
-  dbExecute(conn, "UPDATE level_of_evidence
-            SET reviewed = 'yes'
-            WHERE record_id = ?;", params=list(record.ids))
-  reviewed <- GetLoE(select=record.ids, field="record_id", mode="exact", conn=conn)
-  return(reviewed)
+  return(cbind(studies_details, studies_checklist))
 }
 
 ######################################################################### #
@@ -2018,4 +2033,26 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
                                 params=list(studies$assessment_id, studies$study_id))
   ord <- order(updated_records$assessment_id, updated_records$study_id)
   return(updated_records[ord,])
+}
+
+
+ResetTestDB <- function(conn=eaDB){
+  # Removes all records from the test database. DO NOT USE WITH THE ACTUAL
+  # EVIDENCE ASSESSMENT DATABASE.
+  #
+  # Args:
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   The combined number of entries removed from all tables.
+
+  dbExecute(conn, "USE evidence_testing;")
+  n <- 0
+  n <- n + dbExecute(conn, "DELETE FROM studies;")
+  n <- n + dbExecute(conn, "DELETE FROM assessors;")
+  n <- n + dbExecute(conn, "DELETE FROM assessments;")
+  n <- n + dbExecute(conn, "DELETE FROM quality;")
+  n <- n + dbExecute(conn, "DELETE FROM level_of_evidence;")
+  return(n)
 }

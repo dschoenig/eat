@@ -10,13 +10,13 @@ cd evidence_assessment
 mysql -u root -h localhost -p
 ```
 
-In MySQL source the SQL script for setting up the database structure (see the [standard structure](../fig/eat_db.svg). Make sure to point to the correct location of the script. The name `evidence_assessment` is used for the new database and any existing database of this name is *removed* first.
+In MySQL source the SQL script for setting up the database structure (see the [standard structure](../fig/eat_db.svg)). Make sure to point to the correct location of the script. The name `evidence_assessment` is used for the new database and any existing database of this name is *removed* first.
 
 ```sql
 source src/db_create_mysql.sql;
 ```
 
-To change the name of the database, modify db_create_mysql.sql accordingly (lines 5 and 6). Then use this name instead of `evidence_assessment` in all subsequent steps.
+To change the name of the database, modify `db_create_mysql.sql` accordingly (lines 5 and 6). Then use this name instead of `evidence_assessment` in all subsequent steps.
 
 ## 2. Database initialization
 Before the database can be used, it needs to be initialized with a quality checklist and downgrading criteria. For the standard checklist and criteria, use
@@ -71,23 +71,21 @@ It is recommended to create a database for testing purposes and for getting fami
 source src/db_testing_mysql.sql;
 ```
 
-The script can also be used to recreate the testing database (i.e. return it to its initial state).
+The script can also be used to recreate the testing database (thereby returning it to its initial state).
 
-To remove the database and corresponding user:
+To remove the testing database and corresponding user:
 
 ```sql
 DROP DATABASE IF EXISTS evidence_testing;
 DROP USER IF EXISTS 'evidence_test'@'%';
-FLUSH PRIVILEGES;
 ```
 
 ## 5. Removing the database
-To recreate the database simply follow steps 1 -- 3 again. To completely remove the database and the corresponding accounts within MySQL:
+To recreate the evidence assessment database simply follow steps 1 -- 3 again. To completely remove the database and the corresponding accounts within MySQL:
 
 ```sql
 DROP DATABASE IF EXISTS evidence_assessment;
 DROP USER IF EXISTS 'evidence_admin'@'%';
 DROP USER IF EXISTS 'evidence_user'@'%';
 DROP USER IF EXISTS 'evidence_ro'@'%';
-FLUSH PRIVILEGES;
 ```
