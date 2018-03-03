@@ -7,7 +7,7 @@ Setting up a database for evidence assessment requires access to a MySQL server 
 
 ```sh
 cd evidence_assessment
-mysql -u root -h localhost -p
+mysql -u root -h 127.0.0.1 -p
 ```
 
 In MySQL source the SQL script for setting up the database structure (see the [standard structure](../fig/eat_db.svg)). Make sure to point to the correct location of the script. The name `evidence_assessment` is used for the new database and any existing database of this name is *removed* first.
