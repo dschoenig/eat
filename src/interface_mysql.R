@@ -164,7 +164,7 @@ CreateAssessors <- function(assessors, force=FALSE, conn=eaDB){
   return(assessor_added)
 }
 
-CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
+CreateAssessments <- function(assessments, conn=eaDB){
   # Creates new entries in the `assessments` table.
   #
   # Args:
@@ -178,9 +178,9 @@ CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
   #   A data frame containing new entries in the `assessments` table.
 
   # If date is not specified, set today's date
-  if(is.null(date)){
-    date <- Sys.Date()
-  }
+  today <- Sys.Date()
+  empty <- which(assessments$date_entered == "")
+  assessments$date_entered[empty] <- as.character(today)
 
   # Format input data
   input <- assessments
@@ -188,7 +188,7 @@ CreateAssessments <- function(assessments, date=NULL, conn=eaDB){
   assessments <- TemplateAssessments(n)
   assessments$assessor_id <- as.integer(as.character(input$assessor_id))
   assessments$source <- as.character(input$source)
-  assessments$date_entered <- date
+  assessments$date_entered <- as.character(input$date_entered)
 
   assessments_new <- assessments
   n_entries <- nrow(assessments_new) # number of new entries
@@ -406,7 +406,7 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
 ######################################################################### #
 
 GetRecords <- function(query=NULL, field=NULL, table, return.fields=NULL,
-                       ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
+                       ids.only=FALSE, mode="exact", fuzzy.min.sim=0.7,
                        conn=eaDB) {
   # Retrieves records from tables in the evidence assessment database.
   #
@@ -423,10 +423,10 @@ GetRecords <- function(query=NULL, field=NULL, table, return.fields=NULL,
   #     fields to be returned will depend on `return.fields`. Default is FALSE.
   #   mode: Offers three modes for matching the query term; "exact" will only
   #     return exact matches to the query term; "partial" will also include
-  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     partial matches; "fuzzy" matches similar terms based on a minimum
   #     similarity set by `fuzzy.min.sim`. Default is "exact".
   #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
-  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #     (everything matches) to 1 (only exact matches). Default is 0.7.
   #   conn: A DBIConnection object as returned by dbConnect(); referring to a
   #     MySQL or MariaDB conncection. Default is eaDB.
   #
@@ -556,7 +556,7 @@ GetRecords <- function(query=NULL, field=NULL, table, return.fields=NULL,
 }
 
 GetStudies <- function(query=NULL, field=NULL, return.fields=NULL,
-                       ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
+                       ids.only=FALSE, mode="exact", fuzzy.min.sim=0.7,
                        conn=eaDB){
   # Retrieves records from the `studies` table in the evidence assessment
   # database.
@@ -573,10 +573,10 @@ GetStudies <- function(query=NULL, field=NULL, return.fields=NULL,
   #     fields to be returned will depend on `return.fields`. Default is FALSE.
   #   mode: Offers three modes for matching the query term; "exact" will only
   #     return exact matches to the query term; "partial" will also include
-  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     partial matches; "fuzzy" matches similar terms based on a minimum
   #     similarity set by `fuzzy.min.sim`. Default is "exact".
   #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
-  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #     (everything matches) to 1 (only exact matches). Default is 0.7.
   #   conn: A DBIConnection object as returned by dbConnect(); referring to a
   #     MySQL or MariaDB conncection. Default is eaDB.
   #
@@ -590,7 +590,7 @@ GetStudies <- function(query=NULL, field=NULL, return.fields=NULL,
 }
 
 GetAssessors <- function(query=NULL, field=NULL, return.fields=NULL,
-                         ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
+                         ids.only=FALSE, mode="exact", fuzzy.min.sim=0.7,
                          conn=eaDB){
   # Retrieves records from the `assessors` table in the evidence assessment
   # database.
@@ -607,10 +607,10 @@ GetAssessors <- function(query=NULL, field=NULL, return.fields=NULL,
   #     fields to be returned will depend on `return.fields`. Default is FALSE.
   #   mode: Offers three modes for matching the query term; "exact" will only
   #     return exact matches to the query term; "partial" will also include
-  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     partial matches; "fuzzy" matches similar terms based on a minimum
   #     similarity set by `fuzzy.min.sim`. Default is "exact".
   #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
-  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #     (everything matches) to 1 (only exact matches). Default is 0.7.
   #   conn: A DBIConnection object as returned by dbConnect(); referring to a
   #     MySQL or MariaDB conncection. Default is eaDB.
   #
@@ -624,7 +624,7 @@ GetAssessors <- function(query=NULL, field=NULL, return.fields=NULL,
 }
 
 GetAssessments <- function(query=NULL, field=NULL, return.fields=NULL,
-                           ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
+                           ids.only=FALSE, mode="exact", fuzzy.min.sim=0.7,
                            conn=eaDB){
   # Retrieves records from the `assessments` table in the evidence assessment
   # database.
@@ -641,10 +641,10 @@ GetAssessments <- function(query=NULL, field=NULL, return.fields=NULL,
   #     fields to be returned will depend on `return.fields`. Default is FALSE.
   #   mode: Offers three modes for matching the query term; "exact" will only
   #     return exact matches to the query term; "partial" will also include
-  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     partial matches; "fuzzy" matches similar terms based on a minimum
   #     similarity set by `fuzzy.min.sim`. Default is "exact".
   #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
-  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #     (everything matches) to 1 (only exact matches). Default is 0.7.
   #   conn: A DBIConnection object as returned by dbConnect(); referring to a
   #     MySQL or MariaDB conncection. Default is eaDB.
   #
@@ -659,7 +659,7 @@ GetAssessments <- function(query=NULL, field=NULL, return.fields=NULL,
 }
 
 GetLoE <- function(query=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
-                   mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
+                   mode="exact", fuzzy.min.sim=0.7, conn=eaDB){
   # Retrieves records from the `level_of_evidence` table in the evidence
   # assessment database.
   #
@@ -675,10 +675,10 @@ GetLoE <- function(query=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
   #     fields to be returned will depend on `return.fields`. Default is FALSE.
   #   mode: Offers three modes for matching the query term; "exact" will only
   #     return exact matches to the query term; "partial" will also include
-  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     partial matches; "fuzzy" matches similar terms based on a minimum
   #     similarity set by `fuzzy.min.sim`. Default is "exact".
   #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
-  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #     (everything matches) to 1 (only exact matches). Default is 0.7.
   #   conn: A DBIConnection object as returned by dbConnect(); referring to a
   #     MySQL or MariaDB conncection. Default is eaDB.
   #
@@ -687,13 +687,13 @@ GetLoE <- function(query=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
 
   results <- GetRecords(query=query, field=field, table="level_of_evidence",
                         return.fields=return.fields, ids.only = ids.only,
-                        mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
+                        mode=mode, fuzzy.min.sim=fuzzy.min.sim,   conn=conn)
 
   return(results)
 }
 
 GetFullRecords <- function(query=NULL, field=NULL, ids.only = FALSE,
-                           mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
+                           mode="exact", fuzzy.min.sim=0.7, conn=eaDB){
   # Retrieves full records from the database, joining entries of the `studies`,
   # `level_of_evidence`, `assessments` and `assessors` tables.
   #
@@ -708,10 +708,10 @@ GetFullRecords <- function(query=NULL, field=NULL, ids.only = FALSE,
   #     fields to be returned will depend on `return.fields`. Default is FALSE.
   #   mode: Offers three modes for matching the query term; "exact" will only
   #     return exact matches to the query term; "partial" will also include
-  #     partial matches; "fuzzy" matches similiar terms based on a minimum
+  #     partial matches; "fuzzy" matches similar terms based on a minimum
   #     similarity set by `fuzzy.min.sim`. Default is "exact".
   #   fuzzy.min.sim: Minimum similarity for `mode="fuzzy"`. Ranges from 0
-  #     (everything matches) to 1 (only exact matches). Default is 0.75.
+  #     (everything matches) to 1 (only exact matches). Default is 0.7.
   #   conn: A DBIConnection object as returned by dbConnect(); referring to a
   #     MySQL or MariaDB conncection. Default is eaDB.
   #
@@ -1439,6 +1439,7 @@ UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
   assessor.ids <- as.integer(as.character(assessor.ids))
   assessors <- TemplateAssessors(n)
   assessors$name <- as.character(input$name)
+  assessors$affiliation <- as.character(input$affiliation)
   assessors$email <- as.character(input$email)
 
   assessors_update <- assessors
@@ -1449,9 +1450,11 @@ UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
     update_assessors <- dbSendStatement(conn,
                                         "UPDATE assessors
                                         SET name = ?,
-                                        email = ?
+                                            affiliation = ?,
+                                            email = ?
                                         WHERE assessor_id = ?;")
     dbBind(update_assessors, params=list(assessors_update$name,
+                                         assessors_update$affiliation,
                                          assessors_update$email,
                                          assessor.ids))
     dbClearResult(update_assessors)
@@ -1461,7 +1464,7 @@ UpdateAssessors <- function(assessor.ids, assessors.update, conn=eaDB){
   return(updated)
 }
 
-UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
+UpdateAssessments <- function(assessment.ids, assessments.update, conn=eaDB){
   # Updates entire entries in the `assessments` table.
   #
   # Args:
@@ -1478,12 +1481,16 @@ UpdateAssessments <- function(assessment.ids, assessment.update, conn=eaDB){
   # Returns:
   #   A data frame of updated records in the `assessments` table.
 
+  # If date is not specified, set today's date
+  today <- Sys.Date()
+  empty <- which(input$date_entered == "")
+  assessments.update$date_entered[empty] <- as.character(today)
+
   # Format input data
-  input <- assessment.update
+  input <- assessments.update
   n <- nrow(input)
-  assessment.ids <- as.integer(as.character(assessment.ids))
   assessments <- TemplateAssessments(n)
-  assessments$assessor_id <- as.character(input$assessor_id)
+  assessments$assessor_id <- as.integer(as.character(input$assessor_id))
   assessments$source <- as.character(input$source)
   assessments$date_entered <- as.character(input$date_entered)
 
@@ -1544,16 +1551,36 @@ MarkAsReviewed <- function(record.ids, conn=eaDB){
   # frame of records to be reviewed.
   #
   # Args:
-  #   record.ids: A vector of record IDs to be reviewed. Refers to the
+  #   record.ids: A vector of record IDs to be marked as reviewed. Refers to the
   #     `record_id` field in the `level_of_evidence` table.
   #   conn: A DBIConnection object as returned by dbConnect(); referring to a
   #     MySQL or MariaDB conncection. Default is eaDB.
   #
   # Returns:
-  #   A data frame of the reviewed records in the `level_of_evidence` table.
+  #   A data frame of the marked records from the `level_of_evidence` table.
 
   dbExecute(conn, "UPDATE level_of_evidence
             SET reviewed = 'yes'
+            WHERE record_id = ?;", params=list(record.ids))
+  reviewed <- GetLoE(query=record.ids, field="record_id", mode="exact", conn=conn)
+  return(reviewed)
+}
+
+MarkAsNotReviewed <- function(record.ids, conn=eaDB){
+  # Marks records as not reviewed. Use `GetRecordsToReview()` to obtain a data
+  # frame of records to be reviewed.
+  #
+  # Args:
+  #   record.ids: A vector of record IDs to be marked as not reviewed. Refers to the
+  #     `record_id` field in the `level_of_evidence` table.
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   A data frame of the marked records from the `level_of_evidence` table.
+  
+  dbExecute(conn, "UPDATE level_of_evidence
+            SET reviewed = 'no'
             WHERE record_id = ?;", params=list(record.ids))
   reviewed <- GetLoE(query=record.ids, field="record_id", mode="exact", conn=conn)
   return(reviewed)
@@ -1749,11 +1776,12 @@ TemplateAssessments <- function(N=1){
   #   `CreateAssessments()`
   assessments <- data.frame("assessor_id" = integer(N),
                             "source" = character(N),
+                            "date_entered" = character(N),
                             stringsAsFactors = FALSE)
   return(assessments)
 }
 
-TemplateAssessStudies <- function(N=1){
+TemplateAssessStudies <- function(N=1, conn=eaDB){
   # Creates a template data frame to be used with `AssessStudies()`
   #
   # Args:
@@ -2037,6 +2065,9 @@ UpdateLoE <- function(study.ids=NULL, conn=eaDB){
   return(updated_records[ord,])
 }
 
+######################################################################### #
+# TEST DATABASE CONVENIENCE ###############################################
+######################################################################### #
 
 ResetTestDB <- function(conn=eaDB){
   # Removes all records from the test database. DO NOT USE WITH THE ACTUAL
@@ -2056,5 +2087,66 @@ ResetTestDB <- function(conn=eaDB){
   n <- n + dbExecute(conn, "DELETE FROM assessments;")
   n <- n + dbExecute(conn, "DELETE FROM quality;")
   n <- n + dbExecute(conn, "DELETE FROM level_of_evidence;")
+  dbExecute(conn, "ALTER TABLE studies AUTO_INCREMENT = 1")
+  dbExecute(conn, "ALTER TABLE assessors AUTO_INCREMENT = 1")
+  dbExecute(conn, "ALTER TABLE assessments AUTO_INCREMENT = 1")
+  dbExecute(conn, "ALTER TABLE quality AUTO_INCREMENT = 1")
+  dbExecute(conn, "ALTER TABLE level_of_evidence AUTO_INCREMENT = 1")
   return(n)
+}
+
+ResetTestDBWithDuplicates <- function(conn=eaDB){
+  # Removes all records from the test database and enters duplicate
+  # information. DO NOT USE WITH THE ACTUAL EVIDENCE ASSESSMENT DATABASE.
+  #
+  # Args:
+  #   conn: A DBIConnection object as returned by dbConnect(); referring to a
+  #     MySQL or MariaDB conncection. Default is eaDB.
+  #
+  # Returns:
+  #   NULL
+
+  dbExecute(conn, "USE evidence_testing;")
+  ResetTestDB(conn=conn)
+  examples <- read.csv("data/example_studies.csv")
+  new_studies <- examples[,1:5]
+  CreateStudies(studies=new_studies)
+  new_assessors <- TemplateAssessors(N=2)
+  new_assessors[1,] <- c("Mupepele et al.",
+                         "Department of Biometry and Environmental System Analysis, University of Freiburg",
+                         "anne-christine.mupepele@biom.uni-freiburg.de")
+  new_assessors[2,] <- c("assessor2",
+                         "",
+                         "ex@mple.com")
+  CreateAssessors(assessors=new_assessors)
+  new_assessments <- TemplateAssessments(N=1)
+  new_assessments[1, ] <- c(1, "https://doi.org/10.1890/15-0595", "2015-11-23")
+  CreateAssessments(assessments=new_assessments)
+  assess_studies <- TemplateAssessStudies(N=13)
+  assess_studies$study_id <- 1:13
+  assess_studies[,2:49] <- examples[,c(10, 6:9, 11:53)]
+  AssessStudies(studies=assess_studies, assessment.id=1)
+  new_assessments <- TemplateAssessments(N=1)
+  new_assessments[1, ] <- c(2, "no source", "")
+  CreateAssessments(assessments=new_assessments)
+  assess_studies <- TemplateAssessStudies(N=13)
+  assess_studies$study_id <- 1:13
+  assess_studies[,2:49] <- examples[, c(10, 6:9, 11:53)]
+  AssessStudies(studies=assess_studies, assessment.id=2)
+  new_studies <- GetStudies()
+  new_studies <- new_studies[8:9,-1]
+  CreateStudies(new_studies, force=TRUE)
+  new_assessors <- TemplateAssessors(N=1)
+  new_assessors[1,] <- c("Mupepele A.-C..",
+                         "University of Freiburg",
+                         "no email")
+  CreateAssessors(new_assessors, force=TRUE)
+  new_assessments <- TemplateAssessments(N=1)
+  new_assessments[1, ] <- c(3, "no source", "")
+  CreateAssessments(assessments=new_assessments)
+  assess_studies <- TemplateAssessStudies(N=14)
+  assess_studies$study_id <- 1:14
+  assess_studies[,2:49] <- examples[c(1:13,8), c(10, 6:9, 11:53)]
+  AssessStudies(studies=assess_studies, assessment.id=3)
+  return()
 }
