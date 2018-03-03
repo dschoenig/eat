@@ -23,7 +23,11 @@
   * [References](#references)
 
 ## Overview
+<<<<<<< HEAD
 The [R interface](../src/interface_mysql.R) for the evidence assessment database is designed to allow retrieval, creation, updating, removal and duplicate handling of records in the database. It depends on a correctly structured and initialized MySQL or MariaDB database. Please refer to the [setup guide](database_setup.md)) to set up the evidence assessment database correctly.
+=======
+The [R interface](../src/interface_mysql.R) for the evidence assessment database is designed to allow retrieval, creation, updating, removal and duplicate handling of records in the database. It depends on a correctly structured and initialized MySQL or MariaDB database. Please refer to the [SQL documentation]([testing database](database_setup.md)) for the evidence assessment database to ensure that your database has been set up correctly.
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 
 The interface functions have been built on top of the `DBI` and `RMariaDB` packages. The DBI package also offers general purpose functions to interact with the evidence assessment database in ways that are not covered by this R interface. In addition, the interface requires the packages `stringsdist` and `tidyr`.
 
@@ -38,7 +42,7 @@ This tutorial assumes that a [test database](database_setup.md#4-database-for-te
 
 To load the interface, change your working directory to the project root and source `src/interface_mysql.R`. The script will check for dependencies and install the required packages if necessary.
 
-```r
+```{r}
 setwd("eat_db")
 source("src/interface_mysql.R")
 ```
@@ -55,7 +59,7 @@ User accounts and the database name are created during [database setup](database
 
 For example, to connect to a database named `evidence_assessment` hosted on a server with the IP `127.0.0.1` as the user `evidence_admin` with the password `PASSWORD-ADMIN`:
 
-```r
+```{r}
 # Admin account
 eaDB <- dbConnect(RMariaDB::MariaDB(),
                   host="127.0.0.1",
@@ -68,7 +72,7 @@ It is important to properly assign the resulting connection object, in this case
 
 Similarly, a connection as a standard user, or read-only user can be established. For example:
 
-```r
+```{r}
 # User account
 eaDB <- dbConnect(RMariaDB::MariaDB(),
                   host="127.0.0.1",
@@ -85,13 +89,13 @@ eaDB <- dbConnect(RMariaDB::MariaDB(),
 
 You can disconnect from the database using `dbDisconnect()`:
 
-```r
+```{r}
 dbDisconnect(eaDB)
 ```
 
 For the remaining part of this tutorial, the test database will be used. Make sure to use the correct host IP. For example:
 
-```r
+```{r}
 eaDB <- dbConnect(RMariaDB::MariaDB(),
                   host="127.0.0.1",
                   user="evidence_test",
@@ -104,7 +108,7 @@ The testing database accepts only one connection at a time for the user `evidenc
 
 It is recommended to reset the test database before continuing with the tutorial. Use `ResetTestDB()` for this purpose.
 
-```r
+```{r}
 ResetTestDB()
 ```
 
@@ -123,7 +127,11 @@ The general workflow comprises
 
 These are minimal examples including all necessary steps. Before continuing with the more detailed description in the subsections, you can wipe the database again with `ResetTestDB()`
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # Connect to the test database. For example
 eaDB <- dbConnect(RMariaDB::MariaDB(),
                   host="127.0.0.1",
@@ -212,7 +220,11 @@ AssessStudies(studies=assess_studies, assessment.id=2)
 ### 2.1 Register new studies
 After reading in the example data, we will use `CreateStudies()` to register new studies to be assessed. `CreateStudies()` requires a data frame containing one row for each study, and columns containing general information, such as an `abbreviation` (preferably in the format firstauthorYYYY, with YYYY being year of publication), `authors`, `title`, `year` of publication, and `doi` (see [database structure](../fig/eat_db.svg)). `TemplateStudies()` can be used to create an empty data frame with the correct layout.
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # First, reset the test database
 ResetTestDB()
 
@@ -239,7 +251,7 @@ The function performs a check for duplicates, which can be disabled by using the
 ### 2.2 Register new assessors
 We will use `CreateAssessors()` to register a new assessors. Similar to `CreateStudies()`, `CreateAssessors()` requires a data frame containing one row for each assessor, and columns to identify the assessor. Information provided should include name, affiliation, and email (see [database structure](../fig/eat_db.svg)). Again, `TemplateAssessors()` can be used to create an empty data frame with the correct layout.
 
-```r
+```{r}
 # We will register 2 new assessors
 new_assessors <- TemplateAssessors(N=2)
 
@@ -265,7 +277,7 @@ Each assessor has been assigned a unique `assessor_id`, which will be used to re
 ### 2.3 Register new assessments
 The last step before entering assessment data consists in registering a new assessment with `CreateAssessment()`. `CreateAssessment()` requires a data frame as produced with `TemplateAssessment()`. It must contain columns `assessor_id` and `source`. Entries in `assessor_id` must refer to a valid `assessor_id` in the database (see [section 2.2](#22-register-new-assessors)); while entries in `source` are optional and identify the source where the assessment has been published. The field `date_entered` should contain dates in the format YYYY-MM-DD. If no date is provided, the current system date will be used.
 
-```r
+```{r}
 # We will register 1 assessment
 new_assessments <- TemplateAssessments(N=1)
 
@@ -302,7 +314,7 @@ Information provided must include *study design* (`study_design`), *research con
 
 The data frame must also contain one column for each question of the quality checklist, named `q1`, `q2`, … , `q43`. Answers to questions must be entered as `1` (yes), or `0` (no); everything else will be interpreted as `NA` (question does not apply).
 
-```r
+```{r}
 # Let's take another look at the studies in the database and extract the studies
 # table of the database into a data frame
 studies <- GetStudies()
@@ -349,7 +361,11 @@ AssessStudies(studies=assess_studies, assessment.id=1)
 
 Studies and assessors only have to be registered once. The corresponding IDs (`study_id` and `assessor_id`) can be used to conduct additional assessments by repeating steps 3 and 4.
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # We will enter a new assessment conducted by assessor2 and involving studies with the study_id 1 to 5.
 
 # We first review the IDs of the studies and assessors registered in the
@@ -375,7 +391,11 @@ AssessStudies(studies=assess_studies, assessment.id=2)
 
 Similarly, an already existing assessment can be amended by repeating step 4.
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # Studies with study_id 6 to 13 will be amended to assessment 2
 
 # Step 4
@@ -400,7 +420,11 @@ Without any argument, `Get…()` functions will return all records. The followin
 - **`mode`**: Offers three modes for matching the query term; "exact" will only return exact matches to the query term; `"partial"` will also include partial matches; `"fuzzy"` matches similar terms based on a minimum similarity set by `fuzzy.min.sim`. Default is "exact".
 - **`fuzzy.min.sim`**: Minimum similarity for `mode="fuzzy"`. Ranges from `0` (everything matches) to `1` (only exact matches). Default is `0.75`.
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # By default Get…() functions will return all records
 GetLoE()
 GetStudies()
@@ -475,7 +499,11 @@ Duplicate studies and assessors in the database can be detected with the `CheckF
 
 Duplicate checking involves exact and fuzzy matching. However, a fuzzy match are not returned if an exact match has already been found for the same combination of entries. Similarly, only the first matching field will be returned. To show all matches, set `all.entries=TRUE`. As with the `Get…()` functions ([section 3](#3-data-retrieval)), the argument `ids.only = TRUE` can be used to return ID columns only.
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # First, extract all records from the studies table
 new_studies <- GetStudies()
 # Select studies with study_id 5 and 6; and remove study_id column
@@ -514,7 +542,11 @@ The fields used for duplicate checking, and the similarity thresholds for fuzzy 
 
 Duplicate studies, assessors, and assessments can be combined with `CombineDuplicateStudies()`, `CombineDuplicateAssessors()`, and `CombineDuplicateAssessments()`, respectively. All functions take as arguments a vector of duplicate IDs and a vector of the corresponding original ID for each duplicate. Any conflicts (e.g. in the `level_of_evidence` table) are always solved in favor of the original.
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # Calling ResetTestDBWithDuplicates() will reset the test database and create
 # duplicate records.
 ResetTestDBWithDuplicates()
@@ -561,7 +593,11 @@ As an additional argument, `Update…()` functions require a vector containing t
 
 `ReassessStudies()` is used to update evidence assessment information. As with `AssessStudies()`, quality score and level of evidence will calculated during the process.
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # Update studies 3 to 7
 update_ids <- 3:7
 # Prepare data frame for updating records
@@ -604,7 +640,11 @@ ReassessStudies(studies=reassess_studies, assessment.id=1)
 ## 6. Reviewing records
 After data entry, records should be reviewed by a database administrator to ensure correctness. `GetRecordsToReview()`, `MarkAsReviewed()`, and `MarkAsNotReview()` serve as convenience functions for this purpose.
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # Retrieve records that are have not been reviewed yet
 review <– GetRecordsToReview()
 review
@@ -621,7 +661,11 @@ MarkAsNotReviewed(record.ids=2:3)
 
 Studies, assessors, assessments, and quality information can be removed from the database. The corresponding `Remove…()` functions are designed to maintain database integrity, and make use of cascading deletes where possible.
 
+<<<<<<< HEAD
 ```r
+=======
+```{r}
+>>>>>>> 015b79ac7ff3178a5f6533ae566e3e4f0d8c24d8
 # Remove studies with study_id 4 and 11 from the database
 RemoveStudies(study.ids=c(4, 11))
 GetStudies(ids.only=TRUE) # studies have been removed
