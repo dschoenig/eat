@@ -18,7 +18,7 @@
 #
 # Mupepele, A.-C., Walsh, J. C., Sutherland, W. J., & Dormann, C. F. (2016). An
 # evidence assessment tool for ecosystem services and conservation studies.
-  # Ecological Applications, 26(5), 1295–1301. https://doi.org/10.1890/15-0595
+# Ecological Applications, 26(5), 1295–1301. https://doi.org/10.1890/15-0595
 
 ######################################################################### #
 # DEPENDENCIES#############################################################
@@ -405,13 +405,13 @@ AssessStudies <- function(studies, assessment.id, conn=eaDB){
 # DATA RETRIEVAL ##########################################################
 ######################################################################### #
 
-GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
+GetRecords <- function(query=NULL, field=NULL, table, return.fields=NULL,
                        ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
                        conn=eaDB) {
   # Retrieves records from tables in the evidence assessment database.
   #
   # Args:
-  #   select: Query term for the field to be queried. A character vector of
+  #   query: Query term for the field to be queried. A character vector of
   #     several query terms can be used for modes `exact` and `partial`. If
   #     NULL, the entire table will be returned. Default is NULL.
   #   field: Field to be queried in table. If NULL, the entire table will be
@@ -433,6 +433,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
   # Returns:
   #   A data frame of matching records in the specified table.
 
+  qterm <- query # rename
   # Check for existance of table
   if(!table %in% dbListTables(conn)){
     stop(paste0("There is no table called '", table, "' in the database."))
@@ -448,17 +449,17 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
   }
   # If field name is provided but no query term, print warning that entire table
   # will be returned
-  if(is.null(select) && !is.null(field)){
+  if(is.null(qterm) && !is.null(field)){
     warning(paste0("No query term provided for field '", field,
                    "'. Entire table will be returned."))
     field  <-  NULL
   }
   # If query term is provided but no field name, print warning that entire table
   # will be returned
-  if(!is.null(select) && is.null(field)){
-    warning(paste0("No field name provided for query term '", select,
+  if(!is.null(qterm) && is.null(field)){
+    warning(paste0("No field name provided for query term '", qterm,
                    "'. Entire table will be returned."))
-    select  <-  NULL
+    qterm  <-  NULL
   }
 
   # set field identifier
@@ -473,7 +474,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
     columns <- "*"
   }
 
-  if(is.null(select) && is.null(field)){
+  if(is.null(qterm) && is.null(field)){
     # Return entire table if no query is entered; else perform query
     query <- paste0("SELECT ",
                     columns,
@@ -483,7 +484,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
   } else {
     # Perform query depending on query mode
     if(mode=="partial"){
-      select <- paste("%", as.character(select), "%", sep = "")
+      qterm <- paste("%", as.character(qterm), "%", sep = "")
       query <- paste0("SELECT ",
                       columns,
                       " FROM ",
@@ -491,7 +492,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
                       " WHERE ",
                       dbQuoteIdentifier(conn, field),
                       " LIKE ?;")
-      results <- dbGetQuery(conn, query, params=list(select))
+      results <- dbGetQuery(conn, query, params=list(qterm))
     }
 
     if(mode == "exact"){
@@ -502,11 +503,11 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
                       " WHERE ",
                       dbQuoteIdentifier(conn, field),
                       " = ?;")
-      results <- dbGetQuery(conn, query, params=list(select))
+      results <- dbGetQuery(conn, query, params=list(qterm))
     }
 
     if(mode == "fuzzy"){
-      if(length(select) > 1){
+      if(length(qterm) > 1){
         stop("For fuzzy matching, please provide only one query term.")
       }
       fuzzy.th <- 1 - fuzzy.min.sim
@@ -516,7 +517,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
       res_part <- dbFetch(res, n=50)
       if(nrow(res_part) > 0) {
         res_part_q <- subset(res_part, select=noquote(field))[,1]
-        dist_jw <- stringdist(select, res_part_q, method="jw", p=0.1)
+        dist_jw <- stringdist(qterm, res_part_q, method="jw", p=0.1)
         res_part <- cbind(distance=round(dist_jw, 2), res_part)
         results <- subset(res_part, distance <= fuzzy.th)
         repeat {
@@ -525,7 +526,7 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
             break
           }
           res_part_q <- subset(res_part, select=noquote(field))[,1]
-          dist_jw <- stringdist(select, res_part_q, method="jw", p=0.1)
+          dist_jw <- stringdist(qterm, res_part_q, method="jw", p=0.1)
           res_part <- cbind(distance=round(dist_jw, 2), res_part)
           results <- rbind(results, subset(res_part, distance <= fuzzy.th))
         }
@@ -554,14 +555,14 @@ GetRecords <- function(select=NULL, field=NULL, table, return.fields=NULL,
   return(results)
 }
 
-GetStudies <- function(select=NULL, field=NULL, return.fields=NULL,
+GetStudies <- function(query=NULL, field=NULL, return.fields=NULL,
                        ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
                        conn=eaDB){
   # Retrieves records from the `studies` table in the evidence assessment
   # database.
   #
   # Args:
-  #   select: Query term for the field to be queried. A character vector of
+  #   query: Query term for the field to be queried. A character vector of
   #     several query terms can be used for modes `exact` and `partial`. If
   #     NULL, the entire table will be returned. Default is NULL.
   #   field: Field to be queried in table. If NULL, the entire table will be
@@ -582,20 +583,20 @@ GetStudies <- function(select=NULL, field=NULL, return.fields=NULL,
   # Returns:
   #   A data frame of matching records in the `studies` table.
 
-  results <- GetRecords(select=select, field=field, table="studies",
+  results <- GetRecords(query=query, field=field, table="studies",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
   return(results)
 }
 
-GetAssessors <- function(select=NULL, field=NULL, return.fields=NULL,
+GetAssessors <- function(query=NULL, field=NULL, return.fields=NULL,
                          ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
                          conn=eaDB){
   # Retrieves records from the `assessors` table in the evidence assessment
   # database.
   #
   # Args:
-  #   select: Query term for the field to be queried. A character vector of
+  #   query: Query term for the field to be queried. A character vector of
   #     several query terms can be used for modes `exact` and `partial`. If
   #     NULL, the entire table will be returned. Default is NULL.
   #   field: Field to be queried in table. If NULL, the entire table will be
@@ -615,21 +616,21 @@ GetAssessors <- function(select=NULL, field=NULL, return.fields=NULL,
   #
   # Returns:
   #   A data frame of matching records in the `assessors` table.
-  results <- GetRecords(select=select, field=field, table="assessors",
+  results <- GetRecords(query=query, field=field, table="assessors",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim,
                         conn=conn)
   return(results)
 }
 
-GetAssessments <- function(select=NULL, field=NULL, return.fields=NULL,
+GetAssessments <- function(query=NULL, field=NULL, return.fields=NULL,
                            ids.only=FALSE, mode="exact", fuzzy.min.sim=0.75,
                            conn=eaDB){
   # Retrieves records from the `assessments` table in the evidence assessment
   # database.
   #
   # Args:
-  #   select: Query term for the field to be queried. A character vector of
+  #   query: Query term for the field to be queried. A character vector of
   #     several query terms can be used for modes `exact` and `partial`. If
   #     NULL, the entire table will be returned. Default is NULL.
   #   field: Field to be queried in table. If NULL, the entire table will be
@@ -650,20 +651,20 @@ GetAssessments <- function(select=NULL, field=NULL, return.fields=NULL,
   # Returns:
   #   A data frame of matching records in the `assessments` table.
 
-  results <- GetRecords(select=select, field=field, table="assessments",
+  results <- GetRecords(query=query, field=field, table="assessments",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
 
   return(results)
 }
 
-GetLoE <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
+GetLoE <- function(query=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
                    mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
   # Retrieves records from the `level_of_evidence` table in the evidence
   # assessment database.
   #
   # Args:
-  #   select: Query term for the field to be queried. A character vector of
+  #   query: Query term for the field to be queried. A character vector of
   #     several query terms can be used for modes `exact` and `partial`. If
   #     NULL, the entire table will be returned. Default is NULL.
   #   field: Field to be queried in table. If NULL, the entire table will be
@@ -684,20 +685,20 @@ GetLoE <- function(select=NULL, field=NULL, return.fields=NULL, ids.only=FALSE,
   # Returns:
   #   A data frame of matching records in the `level_of_evidence` table.
 
-  results <- GetRecords(select=select, field=field, table="level_of_evidence",
+  results <- GetRecords(query=query, field=field, table="level_of_evidence",
                         return.fields=return.fields, ids.only = ids.only,
                         mode=mode, fuzzy.min.sim=fuzzy.min.sim, conn=conn)
 
   return(results)
 }
 
-GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
+GetFullRecords <- function(query=NULL, field=NULL, ids.only = FALSE,
                            mode="exact", fuzzy.min.sim=0.75, conn=eaDB){
   # Retrieves full records from the database, joining entries of the `studies`,
   # `level_of_evidence`, `assessments` and `assessors` tables.
   #
   # Args:
-  #   select: Query term for the field to be queried. A character vector of
+  #   query: Query term for the field to be queried. A character vector of
   #     several query terms can be used for modes `exact` and `partial`. If
   #     NULL, the entire table will be returned. Default is NULL.
   #   field: Field to be queried. Any field of the tables `studies`,
@@ -717,16 +718,17 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
   # Returns:
   #   A data frame of matching records in the database.
 
+  qterm <- query # rename
   # If query term is provided but no field name, warn that entire table will be
   # returned
-  if(!is.null(select) && is.null(field)){
-    warning(paste0("No field name provided for query term '", select,
+  if(!is.null(qterm) && is.null(field)){
+    warning(paste0("No field name provided for query term '", qterm,
                    "'. Entire table will be returned."))
-    select  <-  NULL
+    qterm  <-  NULL
   }
 
   # Return entire table if no query is entered; else perform query
-  if(is.null(select) && is.null(field)){
+  if(is.null(qterm) && is.null(field)){
     results <-  dbGetQuery(conn, "SELECT record_id,
                            assessment_id,
                            study_id,
@@ -758,7 +760,7 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
                            JOIN assessors USING(assessor_id);")
   } else {
     if(mode == "partial"){
-      select <- paste("%", as.character(select), "%", sep = "")
+      qterm <- paste("%", as.character(qterm), "%", sep = "")
       query <- paste0("SELECT record_id,
                       assessment_id,
                       study_id,
@@ -791,7 +793,7 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
                       WHERE ",
                       dbQuoteIdentifier(conn, field),
                       " LIKE ?;")
-      results <- dbGetQuery(conn, query, params=list(select))
+      results <- dbGetQuery(conn, query, params=list(qterm))
     }
     if(mode == "exact"){
       query <- paste0("SELECT record_id,
@@ -826,10 +828,10 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
                       WHERE ",
                       dbQuoteIdentifier(conn, field),
                       " = ?;")
-      results <- dbGetQuery(conn, query, params=list(select))
+      results <- dbGetQuery(conn, query, params=list(qterm))
     }
     if(mode == "fuzzy"){
-      if(length(select) > 1){
+      if(length(qterm) > 1){
         stop("For fuzzy matching, please provide only one query term.")
       }
       fuzzy.th <- 1 - fuzzy.min.sim
@@ -865,7 +867,7 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
       res_part <- dbFetch(res, n=50)
       if(nrow(res_part) > 0) {
         res_part_q <- subset(res_part, select=noquote(field))[,1]
-        dist_jw <- stringdist(select, res_part_q, method="jw", p=0.1)
+        dist_jw <- stringdist(qterm, res_part_q, method="jw", p=0.1)
         res_part <- cbind(distance=round(dist_jw, 2), res_part)
         results <- subset(res_part, distance <= fuzzy.th)
         repeat {
@@ -874,7 +876,7 @@ GetFullRecords <- function(select=NULL, field=NULL, ids.only = FALSE,
             break
           }
           res_part_q <- subset(res_part, select=noquote(field))[,1]
-          dist_jw <- stringdist(select, res_part_q, method="jw", p=0.1)
+          dist_jw <- stringdist(qterm, res_part_q, method="jw", p=0.1)
           res_part <- cbind(distance=round(dist_jw, 2), res_part)
           results <- rbind(results, subset(res_part, distance <= fuzzy.th))
         }
@@ -925,7 +927,7 @@ GetUnassessedStudies <- function(ids.only=FALSE, conn=eaDB){
   if(ids.only == TRUE){
     return(not_assessed)
   } else {
-    not_assessed_studies <- GetStudies(select=not_assessed, field="study_id",
+    not_assessed_studies <- GetStudies(query=not_assessed, field="study_id",
                                        mode="exact", conn=conn)
     return(not_assessed_studies)
   }
@@ -948,7 +950,7 @@ GetRecordsToReview <- function(ids.only=FALSE, conn=eaDB){
   if(ids.only == TRUE){
     return(to_review)
   } else {
-    to_review_records <- GetFullRecords(select=to_review, field="record_id",
+    to_review_records <- GetFullRecords(query=to_review, field="record_id",
                                         mode="exact", conn=conn)
     return(to_review_records)
   }
@@ -1028,7 +1030,7 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
 
     for(j in 1:length(select)){
       # Loop over individual queries
-      res <- GetRecords(select=select[j], field = fields[i], table=table, mode="exact",
+      res <- GetRecords(query=select[j], field = fields[i], table=table, mode="exact",
                         return.fields = c(id.field, fields[i]))
 
       # Combine results into data.frame
@@ -1075,7 +1077,7 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
 
     for(j in 1:length(select)){
       # Loop over individual queries
-      res <- GetRecords(select=select[j], field = fields[i], table=table, mode="fuzzy",
+      res <- GetRecords(query=select[j], field = fields[i], table=table, mode="fuzzy",
                         return.fields = c(id.field, fields[i]), fuzzy.min.sim = fuzzy.min.sims[i])
 
       # Combine results into data.frame
@@ -1126,7 +1128,7 @@ CheckForDuplicates <- function(source=NULL, table, fields, id.field,
     # Replace source rows with IDs
     source_rows <- duplicates$source_row
     query_ids <- subset(source, select = id.field)[source_rows, 1]
-    source_ids <- GetRecords(select=query_ids, field = id.field, table=table, mode="exact", ids.only = T)
+    source_ids <- GetRecords(query=query_ids, field = id.field, table=table, mode="exact", ids.only = T)
     duplicates$source_row <- source_ids
     names(duplicates)[names(duplicates) =="source_row"] <- paste0(id.field, "_1", collapse="")
     # Change column names
@@ -1553,7 +1555,7 @@ MarkAsReviewed <- function(record.ids, conn=eaDB){
   dbExecute(conn, "UPDATE level_of_evidence
             SET reviewed = 'yes'
             WHERE record_id = ?;", params=list(record.ids))
-  reviewed <- GetLoE(select=record.ids, field="record_id", mode="exact", conn=conn)
+  reviewed <- GetLoE(query=record.ids, field="record_id", mode="exact", conn=conn)
   return(reviewed)
 }
 
