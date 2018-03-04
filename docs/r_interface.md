@@ -233,7 +233,7 @@ CreateStudies(studies=new_studies)
 ```
 `CreateStudies()` will return all entries that have been added to the database.
 
-Note that a unique `study_id` has been assigned to each study. These IDs will be used when entering evidence assessment information later ([section 2.4](#24-enter-evidence-assessment-information)). Studies in the database can be retrieved with `GetStudies()` ([section 3](#3-data-retrival)).
+Note that a unique `study_id` has been assigned to each study. These IDs will be used when entering evidence assessment information later ([section 2.4](#24-enter-evidence-assessment-information)). Studies in the database can be retrieved with `GetStudies()` ([section 3](#3-data-retrieval)).
 
 `CreateStudies()` performs a check for duplicates, which can be disabled by using the argument `force=TRUE` in case you are completely sure that you are not adding duplicates (see the section on [duplicate handling](#4-handling-duplicate-entries) for more details).
 
@@ -342,7 +342,7 @@ AssessStudies(studies=assess_studies, assessment.id=1)
 
 `AssessStudies()` returns a summary of the evidence assessment, including level of evidence based on study design (`loe_pre`), quality points possible (`points_p`), quality points achieved (`points_q`), quality score in percent (`q_score`), the resulting `downgrading`,  and the final level of evidence (`loe_final`).
 
-`GetLoE()` and `GetFullRecords` can be used to retrieve more exhaustive records (see [section 3](#3-data-retrival)).
+`GetLoE()` and `GetFullRecords` can be used to retrieve more exhaustive records (see [section 3](#3-data-retrieval)).
 
 `AssessStudies()` will not allow to assess a study twice for the same assessment. To assess a study multiple times, new assessments have to be registered. Evidence assessment information can be updated with `ReassessStudies()` ([section 5])
 
