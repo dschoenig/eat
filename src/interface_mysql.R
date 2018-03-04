@@ -21,7 +21,7 @@
 # Ecological Applications, 26(5), 1295–1301. https://doi.org/10.1890/15-0595
 
 ######################################################################### #
-# DEPENDENCIES#############################################################
+# DEPENDENCIES ############################################################
 ######################################################################### #
 
 # Check for installed packages and install, if necessary
@@ -1483,7 +1483,7 @@ UpdateAssessments <- function(assessment.ids, assessments.update, conn=eaDB){
 
   # If date is not specified, set today's date
   today <- Sys.Date()
-  empty <- which(input$date_entered == "")
+  empty <- which(assessments.update$date_entered == "")
   assessments.update$date_entered[empty] <- as.character(today)
 
   # Format input data
@@ -1578,7 +1578,7 @@ MarkAsNotReviewed <- function(record.ids, conn=eaDB){
   #
   # Returns:
   #   A data frame of the marked records from the `level_of_evidence` table.
-  
+
   dbExecute(conn, "UPDATE level_of_evidence
             SET reviewed = 'no'
             WHERE record_id = ?;", params=list(record.ids))

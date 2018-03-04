@@ -1,4 +1,4 @@
-/* USE ONLY WITH MySQL */
+/* USE ONLY WITH MySQL OR MariaDB */
 
 DROP DATABASE IF EXISTS evidence_assessment;
 
