@@ -521,7 +521,7 @@ GetRecords <- function(query=NULL, field=NULL, table, return.fields=NULL,
         res_part <- cbind(distance=round(dist_jw, 2), res_part)
         results <- subset(res_part, distance <= fuzzy.th)
         repeat {
-          res_part <- dbFetch(res, n=2)
+          res_part <- dbFetch(res, n=50)
           if(nrow(res_part) <= 1) {
             break
           }
@@ -871,7 +871,7 @@ GetFullRecords <- function(query=NULL, field=NULL, ids.only = FALSE,
         res_part <- cbind(distance=round(dist_jw, 2), res_part)
         results <- subset(res_part, distance <= fuzzy.th)
         repeat {
-          res_part <- dbFetch(res, n=2)
+          res_part <- dbFetch(res, n=50)
           if(nrow(res_part) <= 1) {
             break
           }
